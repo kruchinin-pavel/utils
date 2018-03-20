@@ -136,15 +136,19 @@ public class Csv {
 
             @Override
             public T next() {
-                Map<String, String> next = null;
-                try {
-                    next = csvIter.next();
-                    counter.incrementAndGet();
-                    T value = builder.apply(next, new FileRef(Paths.get(fileName), counter.get()));
-                    return value;
-                } catch (Exception e) {
-                    throw new RuntimeException(String.format("Error parsing file: %s:%s valMap: %s. Msg: %s", fileName, counter.get(), next, e.getMessage()), e);
-                }
+                T value;
+                do {
+                    if(!hasNext()) return null;
+                    Map<String, String> next = null;
+                    try {
+                        next = csvIter.next();
+                        counter.incrementAndGet();
+                        value = builder.apply(next, new FileRef(Paths.get(fileName), counter.get()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(String.format("Error parsing file: %s:%s valMap: %s. Msg: %s", fileName, counter.get(), next, e.getMessage()), e);
+                    }
+                } while (value == null);
+                return value;
             }
         };
     }
