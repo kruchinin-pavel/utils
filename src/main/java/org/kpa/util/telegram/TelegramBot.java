@@ -156,14 +156,6 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath));
     }
 
-    public static synchronized TelegramBot mySuperBot(String storePath) {
-        return get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", storePath);
-    }
-
-    public static synchronized TelegramBot pscapChatBot(String storePath) {
-        return get("PscapChatBot", "594777301:AAEszPw4iKkvobAeiV6wJwmvZe8HVbhrvTc", storePath);
-    }
-
     static {
         ApiContextInitializer.init();
     }
