@@ -7,23 +7,20 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import com.google.common.base.Strings;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Json {
 
@@ -85,18 +82,24 @@ public class Json {
         }
     }
 
+    public static void toFile(String fileName, Collection<?> list) {
+        toFile(fileName, list.stream());
+    }
+    public static void toFile(String fileName, Stream<?> stream) {
+        try {
+            Files.write(Paths.get(fileName),
+                    stream.map(Json::writeObject).collect(Collectors.toList()));
+        } catch (IOException e1) {
+            throw new RuntimeException(e1);
+        }
+    }
+
     public static String writeObject(Object val) {
         try {
             return mapper.writeValueAsString(val);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public static List<String> list(String... fileNames) {
-        return FileUtils.list(fileNames).stream()
-                .filter(fName -> "json".equals(FilenameUtils.getExtension(fName)))
-                .collect(Collectors.toList());
     }
 
     public static <R> Iterable<R> iterableFile(String fileName, Class<R> clazz) {

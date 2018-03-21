@@ -12,6 +12,7 @@ import java.io.Reader;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -127,6 +128,10 @@ public class Utils {
                 return iterator.next();
             }
         };
+    }
+
+    public static <T> List<T> asList(Iterable<T> iterable) {
+        return stream(iterable).collect(Collectors.toList());
     }
 
     public static <T> Stream<T> stream(Iterable<T> iterable) {
