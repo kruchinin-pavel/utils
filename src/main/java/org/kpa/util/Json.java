@@ -133,7 +133,7 @@ public class Json {
                 public boolean hasNext() {
                     String line;
                     try {
-                        while ((line = reader.readLine()) != null) {
+                        while (next == null && (line = reader.readLine()) != null) {
                             lineCounter.incrementAndGet();
                             if (Strings.isNullOrEmpty(line.trim())) {
                                 continue;
