@@ -1,6 +1,9 @@
 package org.kpa.util.telegram;
 
 import com.fasterxml.jackson.annotation.*;
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import org.kpa.util.Json;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
@@ -21,14 +24,18 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
-    private final Set<ChatInfo> chatSet = new HashSet<>();
-    private final String storePath;
-    private final AtomicBoolean closed = new AtomicBoolean();
     private final String token;
+    private final String storePath;
     private final String botUserName;
+    private Map<String, BiConsumer<ChatInfo, Message>> secrectCallback = new LinkedHashMap<>();
+    private Map<String, BiConsumer<ChatInfo, Message>> callback = new LinkedHashMap<>();
+    private final List<ChatInfo> chatSet = new ArrayList<>();
+    private final AtomicBoolean closed = new AtomicBoolean();
+    private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
 
     private TelegramBot(String botUserName, String token, String storePath) {
         Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
@@ -41,20 +48,60 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
+        cmd("bye", (chat, msg) -> {
+            chatSet.remove(chat);
+            send(chat, "Bye!", true);
+            storeState();
+        });
+        cmd("me", (chat, msg) -> {
+            send(chat, "Your info:\n" + chat.toString(), true);
+        });
+        cmd("sync", (chat, msg) -> {
+            loadState();
+            send(chat, "States reloaded", true);
+        });
+        cmd("?", (chat, msg) -> {
+            String text = "Commands are:\n" + Joiner.on(",\n").join(
+                    callback.keySet().stream().map(v -> "'" + v + "'").collect(Collectors.toList()));
+            if (chat.enabled) {
+                text += "\nSecret commands are:\n" + Joiner.on(",\n").join(
+                        secrectCallback.keySet().stream().map(v -> "'" + v + "'").collect(Collectors.toList()));
+            }
+            send(chat, text, true);
+        });
+        secretCmd("all", (chat, msg) -> {
+            loadState();
+            send(chat, "Chats are:\n" + Joiner.on("\n").join(chatSet), true);
+        });
+
         logger.info("Telegram bot {} started.", botUserName);
+        broadcast("I'm up!", false);
+    }
+
+    public TelegramBot cmd(String command, BiConsumer<ChatInfo, Message> consumer) {
+        Preconditions.checkArgument(this.callback.put(command.toLowerCase().trim(), consumer) == null,
+                "Already contains command: %s", command);
+        return this;
+    }
+
+    public TelegramBot secretCmd(String command, BiConsumer<ChatInfo, Message> consumer) {
+        Preconditions.checkArgument(this.secrectCallback.put(command.toLowerCase().trim(), consumer) == null,
+                "Already contains command: %s", command);
+        return this;
     }
 
     private synchronized void loadState() {
         if (Files.isRegularFile(Paths.get(storePath))) {
-            chatSet.addAll(Utils.asList(Json.iterableFile(storePath, ChatInfo.class)));
-            logger.info("Restored {} chats.", chatSet.size());
-            broadcast("I'm up!", false);
+            chatSet.clear();
+            chatSet.addAll(new HashSet<>(Utils.asList(Json.iterableFile(storePath, ChatInfo.class))));
+            logger.info("Restored states: {}", chatSet);
         } else {
             logger.info("No chats yet");
         }
     }
 
     private synchronized void storeState() {
+        logger.info("Stored states: {}", chatSet);
         if (chatSet.size() > 0) {
             Json.toFile(storePath, chatSet);
         } else {
@@ -83,19 +130,31 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     public void onUpdateReceived(Update e) {
         // Тут будет то, что выполняется при получении сообщения
         logger.info("Update come: {}", e);
+        if (e.getMessage() == null) {
+            logger.info("Empty message come: {}", e);
+            return;
+        }
         ChatInfo info = new ChatInfo(e.getMessage());
         if (!chatSet.contains(info)) {
             chatSet.add(info);
-            send(info, "Welcome.", true);
+            send(info, "You are new to me. Type ? to list commands.", true);
             storeState();
         } else {
-            if (e.getMessage().getText().equalsIgnoreCase("/fgt")) {
-                chatSet.remove(info);
-                send(info, "Bye!", true);
-            } else {
-                send(info, "You are already in. Commands:\n/fgt - forget", true);
+            info = chatSet.get(chatSet.indexOf(info));
+            String command = e.getMessage().getText().toLowerCase();
+            BiConsumer<ChatInfo, Message> cons = callback.get(command);
+            if (cons == null) {
+                cons = secrectCallback.get(command);
+                if (cons != null && !info.enabled) {
+                    send(info, "Not permitted", true);
+                    return;
+                }
             }
-            storeState();
+            if (cons != null) {
+                cons.accept(info, e.getMessage());
+            } else {
+                send(info, "What??\bCommands are: " + Joiner.on(", ").join(callback.keySet()), true);
+            }
         }
     }
 
@@ -110,7 +169,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             sendApiMethodAsync(method, new SentCallback<Message>() {
                 @Override
                 public void onResult(BotApiMethod<Message> method, Message response) {
-                    logger.info("Method successful: {}. Resonce: {}", method, response);
+                    logger.debug("Method successful: {}. Resonce: {}", method, response);
                 }
 
                 @Override
@@ -141,11 +200,16 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         return token;
     }
 
+    @Override
+    public void onClosing() {
+        broadcast("I'm off!", false);
+        super.onClosing();
+    }
 
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            broadcast("I'm off!", false);
+            onClosing();
         }
     }
 
@@ -218,11 +282,15 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
         @Override
         public String toString() {
-            return "ChatInfo{" +
-                    "chatId=" + chatId +
-                    ", userId='" + userId + '\'' +
-                    ", subscribed=" + subscribed +
-                    '}';
+            Map<String, Object> vals = new LinkedHashMap<>();
+            if (!Strings.isNullOrEmpty(userName)) vals.put("userName", userName);
+            if (!Strings.isNullOrEmpty(userFirstName)) vals.put("userFirstName", userFirstName);
+            if (!Strings.isNullOrEmpty(userLastName)) vals.put("userLastName", userLastName);
+            vals.put("subscribed", subscribed);
+            vals.put("chatId", chatId);
+            vals.put("userId", userId);
+            vals.put("enabled", enabled);
+            return "ChatInfo{" + Joiner.on(", ").withKeyValueSeparator("=").join(vals) + '}';
         }
     }
 }

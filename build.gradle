@@ -22,11 +22,13 @@ repositories {
 }
 
 dependencies {
+    compile 'commons-io:commons-io:2.6'
     compile 'org.slf4j:slf4j-api:1.7.21'
     compile 'org.jfree:jfreechart:1.0.14'
     compile 'com.google.guava:guava:19.0'
     compile 'net.sf.supercsv:super-csv:2.4.0'
-    compile 'commons-io:commons-io:2.6'
+    compile 'ch.qos.logback:logback-core:1.1.7'
+    compile 'ch.qos.logback:logback-classic:1.1.7'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.3'
     compile 'com.fasterxml.jackson.core:jackson-annotations:2.9.3'

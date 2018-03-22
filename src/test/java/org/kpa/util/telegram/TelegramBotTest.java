@@ -3,9 +3,8 @@ package org.kpa.util.telegram;
 public class TelegramBotTest {
 
     public static void main(String[] args) throws InterruptedException {
-        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "", "chats.json");
-        bot.broadcast("Hi from test!", true);
-        Thread.sleep(10000);
+        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", "chats.json");
+        Thread.sleep(100000000);
     }
 
 }
