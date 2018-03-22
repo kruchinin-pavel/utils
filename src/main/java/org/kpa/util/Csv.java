@@ -6,10 +6,10 @@ import org.supercsv.prefs.CsvPreference;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -67,30 +67,24 @@ public class Csv {
 
                 private final CsvMapReader csvMapReader = new CsvMapReader(FileUtils.newBufferedReader(fileName), preference);
                 private final String[] header = csvMapReader.getHeader(true);
-                private final Map<String, String> shortByLongCol = new HashMap<>();
                 private final AtomicBoolean closed = new AtomicBoolean();
                 private Map<String, String> val;
+                private final AtomicInteger counter = new AtomicInteger();
 
                 @Override
                 public boolean hasNext() {
                     try {
                         if (val == null && !closed.get()) {
+                            counter.incrementAndGet();
                             val = csvMapReader.read(header);
-                            if (val != null && shortByLongCol.size() > 0) {
-                                Map<String, String> convertedKeys = new HashMap<>();
-                                val.forEach((key, val) -> {
-                                    String convertedKey = shortByLongCol.get(key);
-                                    if (key == null) convertedKey = key;
-                                    convertedKeys.put(convertedKey, val);
-                                });
-                                val = convertedKeys;
-                            }
                         }
                         if (val == null) {
                             close();
                         }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error in csv " +
+                                fileName + ":" + counter.get() +
+                                ". Msg:" + e.getMessage(), e);
                     }
                     return val != null;
                 }
@@ -138,7 +132,7 @@ public class Csv {
             public T next() {
                 T value;
                 do {
-                    if(!hasNext()) return null;
+                    if (!hasNext()) return null;
                     Map<String, String> next = null;
                     try {
                         next = csvIter.next();
