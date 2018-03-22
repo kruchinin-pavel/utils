@@ -159,7 +159,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     }
 
 
-    private synchronized void send(ChatInfo msg, String text, boolean async) {
+    public synchronized void send(ChatInfo msg, String text, boolean async) {
         SendMessage s = new SendMessage();
         logger.info("Sending message to chatId: {}", msg);
         s.setChatId(msg.chatId);
