@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import com.google.common.base.Strings;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
 
 import java.io.*;
@@ -17,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -100,6 +102,12 @@ public class Json {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static List<String> list(String... fileNames) {
+        return FileUtils.list(fileNames).stream()
+                .filter(fName -> "json".equals(FilenameUtils.getExtension(fName)))
+                .collect(Collectors.toList());
     }
 
     public static <R> Iterable<R> iterableFile(String fileName, Class<R> clazz) {
