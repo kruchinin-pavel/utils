@@ -62,7 +62,7 @@ public class Json {
     public static <T> T readFile(String fileName, Class<T> clazz) {
         try {
             return mapperFormatted.readValue(
-                    new InputStreamReader(new BOMInputStream(new FileInputStream(fileName)), Charset.defaultCharset()), clazz);
+                    new InputStreamReader(new BOMInputStream(FileUtils.getInputStream(fileName)), Charset.defaultCharset()), clazz);
         } catch (Exception e) {
             throw new RuntimeException("Error parsing file: [" + fileName + "]", e);
         }

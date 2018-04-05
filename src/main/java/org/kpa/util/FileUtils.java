@@ -26,16 +26,21 @@ public class FileUtils {
 
     public static BufferedReader newBufferedReader(Path path) {
         try {
-            InputStream is;
-            if (path.toString().endsWith("gz")) {
-                is = new GZIPInputStream(Files.newInputStream(path));
-            } else {
-                is = Files.newInputStream(path);
-            }
+            InputStream is = getInputStream(path.toString());
             return new BufferedReader(new InputStreamReader(new BOMInputStream(is)));
         } catch (IOException e) {
             throw new RuntimeException("Exception with " + path + ": " + e.getMessage(), e);
         }
+    }
+
+    public static InputStream getInputStream(String path) throws IOException {
+        InputStream is;
+        if (path.endsWith("gz")) {
+            is = new GZIPInputStream(Files.newInputStream(Paths.get(path)));
+        } else {
+            is = Files.newInputStream(Paths.get(path));
+        }
+        return is;
     }
 
     public static BufferedWriter newBufferedWriter(String path) {
