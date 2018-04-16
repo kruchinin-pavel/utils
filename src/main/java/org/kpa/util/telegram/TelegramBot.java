@@ -4,6 +4,12 @@ import com.fasterxml.jackson.annotation.*;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.kpa.util.Json;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
@@ -37,11 +43,14 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final AtomicBoolean closed = new AtomicBoolean();
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
 
-    private TelegramBot(String botUserName, String token, String storePath) {
+    private TelegramBot(String botUserName, String token, String storePath, RequestConfig config) {
         Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
         this.storePath = storePath;
         this.token = token;
         this.botUserName = botUserName;
+        if (config != null) {
+            getOptions().setRequestConfig(config);
+        }
         try {
             new TelegramBotsApi().registerBot(this);
             loadState();
@@ -216,8 +225,8 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     private static Map<String, TelegramBot> botByName = new HashMap<>();
 
-    public static synchronized TelegramBot get(String botUserName, String token, String storePath) {
-        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath));
+    public static synchronized TelegramBot get(String botUserName, String token, String storePath, RequestConfig config) {
+        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath, config));
     }
 
     static {
@@ -292,5 +301,14 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             vals.put("enabled", enabled);
             return "ChatInfo{" + Joiner.on(", ").withKeyValueSeparator("=").join(vals) + '}';
         }
+    }
+
+
+    public static RequestConfig proxy(String host, int port, String user, String pswd) {
+        HttpHost targetHost = new HttpHost(host, port, "https");
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(new AuthScope(targetHost.getHostName(), targetHost.getPort()),
+                new UsernamePasswordCredentials(user, pswd));
+        return RequestConfig.custom().setProxy(targetHost).build();
     }
 }

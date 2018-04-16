@@ -14,7 +14,8 @@ public class TelegramBotTest {
     private static final Logger logger = LoggerFactory.getLogger(TelegramBotTest.class);
 
     public static void main(String[] args) throws InterruptedException {
-        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", "chats.json");
+        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", "chats.json",
+                TelegramBot.proxy("84.22.107.103", 1080, "pspartners", "E77W7G2JGEw41FV9mj"));
         Thread.sleep(100000000);
     }
 
@@ -25,5 +26,6 @@ public class TelegramBotTest {
         assertEquals(3, set.size());
 
     }
+
 
 }
