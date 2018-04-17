@@ -23,10 +23,7 @@ import org.telegram.telegrambots.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.updateshandlers.SentCallback;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ProxySelector;
-import java.net.SocketAddress;
-import java.net.URI;
+import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -347,7 +344,16 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
                             new java.net.Proxy(java.net.Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)))
                     .build());
             ProxySelector.setDefault(ps);
-
+            Authenticator.setDefault(new Authenticator() {
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    if (proxyHost.equalsIgnoreCase(this.getRequestingHost())) {
+                        return new PasswordAuthentication(
+                                Props.getProperty("telegram_proxy.user", "telegram_proxy.pswd", "", true),
+                                Props.getProperty("telegram_proxy.pswd", "telegram_proxy.pswd", "", true).toCharArray());
+                    }
+                    return super.getPasswordAuthentication();
+                }
+            });
         }
 
     }
