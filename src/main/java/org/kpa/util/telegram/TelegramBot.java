@@ -3,9 +3,11 @@ package org.kpa.util.telegram;
 import com.fasterxml.jackson.annotation.*;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import org.kpa.util.Json;
+import org.kpa.util.Props;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -222,6 +224,14 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private static Map<String, TelegramBot> botByName = new HashMap<>();
 
     public static synchronized TelegramBot get(String botUserName, String token, String storePath) {
+        String proxy = Props.getSilent("telegram_proxy");
+        if (!Strings.isNullOrEmpty(proxy) && !TelegramBot.Proxy.isEnabled()) {
+            int port = 1080;
+            Iterator<String> iter = Splitter.on(":").trimResults().omitEmptyStrings().split(proxy).iterator();
+            String host = iter.next();
+            if (iter.hasNext()) port = Integer.parseInt(iter.next());
+            TelegramBot.Proxy.enable(host, port);
+        }
         return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath));
     }
 
@@ -331,6 +341,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
         public static void enable(String proxyHost, int proxyPort) {
             Preconditions.checkArgument(enabled.compareAndSet(false, true), "Already enabled telegram proxy");
+            logger.info("Enabling telegram proxy: {}:{}", proxyHost, proxyPort);
             Proxy ps = new Proxy(ProxySelector.getDefault(), new ImmutableMap.Builder<String, java.net.Proxy>()
                     .put("socket://api.telegram.org:443",
                             new java.net.Proxy(java.net.Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)))
