@@ -4,12 +4,7 @@ import com.fasterxml.jackson.annotation.*;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.impl.client.BasicCredentialsProvider;
+import com.google.common.collect.ImmutableMap;
 import org.kpa.util.Json;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
@@ -26,6 +21,10 @@ import org.telegram.telegrambots.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.updateshandlers.SentCallback;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -43,14 +42,11 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final AtomicBoolean closed = new AtomicBoolean();
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
 
-    private TelegramBot(String botUserName, String token, String storePath, RequestConfig config) {
+    private TelegramBot(String botUserName, String token, String storePath) {
         Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
         this.storePath = storePath;
         this.token = token;
         this.botUserName = botUserName;
-        if (config != null) {
-            getOptions().setRequestConfig(config);
-        }
         try {
             new TelegramBotsApi().registerBot(this);
             loadState();
@@ -225,8 +221,8 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     private static Map<String, TelegramBot> botByName = new HashMap<>();
 
-    public static synchronized TelegramBot get(String botUserName, String token, String storePath, RequestConfig config) {
-        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath, config));
+    public static synchronized TelegramBot get(String botUserName, String token, String storePath) {
+        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath));
     }
 
     static {
@@ -304,11 +300,41 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     }
 
 
-    public static RequestConfig proxy(String host, int port, String user, String pswd) {
-        HttpHost targetHost = new HttpHost(host, port, "https");
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(new AuthScope(targetHost.getHostName(), targetHost.getPort()),
-                new UsernamePasswordCredentials(user, pswd));
-        return RequestConfig.custom().setProxy(targetHost).build();
+    public static class Proxy extends ProxySelector {
+        private final ProxySelector defsel;
+        private final Map<String, java.net.Proxy> proxies;
+        private static AtomicBoolean registered = new AtomicBoolean();
+
+        private Proxy(ProxySelector def, Map<String, java.net.Proxy> proxies) {
+            defsel = def;
+            this.proxies = proxies;
+        }
+
+        public java.util.List<java.net.Proxy> select(URI uri) {
+            if (uri == null) {
+                throw new IllegalArgumentException("URI can't be null.");
+            }
+            java.net.Proxy proxy = proxies.get(uri.toString());
+            if (proxy != null) {
+                return Collections.singletonList(proxy);
+            }
+            return defsel.select(uri);
+        }
+
+        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+            logger.info("Connection failed to URI:{} with proxy(if any): {}", uri, proxies.get(uri.toString()));
+        }
+
+        public static void enable(String proxyHost, int proxyPort) {
+            Preconditions.checkArgument(registered.compareAndSet(false, true), "Already enabled telegram proxy");
+            Proxy ps = new Proxy(ProxySelector.getDefault(), new ImmutableMap.Builder<String, java.net.Proxy>()
+                    .put("socket://api.telegram.org:443",
+                            new java.net.Proxy(java.net.Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)))
+                    .build());
+            ProxySelector.setDefault(ps);
+
+        }
+
     }
+
 }
