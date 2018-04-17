@@ -1,9 +1,20 @@
 package org.kpa.util;
 
+import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 
 public class Props {
+    private static Function<String, String> customProps;
+
+    public static Function<String, String> getCustomProps() {
+        return customProps;
+    }
+
+    public static void setCustomProps(Function<String, String> customProps) {
+        Props.customProps = customProps;
+    }
+
     public static String getSilent(String propertyName, String defaultVal) {
         return getProperty(propertyName, propertyName, defaultVal, false);
     }
@@ -25,8 +36,13 @@ public class Props {
         String value = System.getProperty(propertyName);
         if (Strings.isNullOrEmpty(value)) {
             value = System.getenv(propertyName);
+            if (Strings.isNullOrEmpty(value) && customProps != null) {
+                value = customProps.apply(propertyName);
+            }
         }
+
         if (Strings.isNullOrEmpty(value)) {
+
             if (throwOnAbsent) {
                 throw new IllegalArgumentException("Property " + propertyName + " is not set. Need to set it for: " + propDescription);
             } else {

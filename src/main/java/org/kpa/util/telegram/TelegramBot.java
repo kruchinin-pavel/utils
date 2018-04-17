@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,9 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final List<ChatInfo> chatSet = new ArrayList<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
+    private static final AtomicInteger botCounter = new AtomicInteger();
+    private final int botId = botCounter.getAndIncrement();
+    private static Map<String, TelegramBot> botByName = new HashMap<>();
 
     private TelegramBot(String botUserName, String token, String storePath) {
         Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
@@ -78,7 +82,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             send(chat, "Chats are:\n" + Joiner.on("\n").join(chatSet), true);
         });
 
-        logger.info("Telegram bot {} started.", botUserName);
+        logger.info("Telegram bot {}:{} started.", botUserName, botId);
         broadcast("I'm up!", false);
     }
 
@@ -92,6 +96,10 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         Preconditions.checkArgument(this.secrectCallback.put(command.toLowerCase().trim(), consumer) == null,
                 "Already contains command: %s", command);
         return this;
+    }
+
+    public int getBotId() {
+        return botId;
     }
 
     private synchronized void loadState() {
@@ -133,7 +141,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     @Override
     public void onUpdateReceived(Update e) {
         // Тут будет то, что выполняется при получении сообщения
-        logger.info("Update come: {}", e);
+        logger.info("id:{} Update come: {}", botId, e);
         if (e.getMessage() == null) {
             logger.info("Empty message come: {}", e);
             return;
@@ -157,7 +165,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             if (cons != null) {
                 cons.accept(info, e.getMessage());
             } else {
-                send(info, "What??\bCommands are: " + Joiner.on(", ").join(callback.keySet()), true);
+                send(info, "id(" + botId + "). What??\bCommands are: " + Joiner.on(", ").join(callback.keySet()), true);
             }
         }
     }
@@ -217,8 +225,6 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         }
     }
 
-
-    private static Map<String, TelegramBot> botByName = new HashMap<>();
 
     public static synchronized TelegramBot get(String botUserName, String token, String storePath) {
         String proxy = Props.getSilent("telegram_proxy");
