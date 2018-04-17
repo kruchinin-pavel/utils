@@ -303,7 +303,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     public static class Proxy extends ProxySelector {
         private final ProxySelector defsel;
         private final Map<String, java.net.Proxy> proxies;
-        private static AtomicBoolean registered = new AtomicBoolean();
+        private static AtomicBoolean enabled = new AtomicBoolean();
 
         private Proxy(ProxySelector def, Map<String, java.net.Proxy> proxies) {
             defsel = def;
@@ -325,8 +325,12 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             logger.info("Connection failed to URI:{} with proxy(if any): {}", uri, proxies.get(uri.toString()));
         }
 
+        public static boolean isEnabled() {
+            return enabled.get();
+        }
+
         public static void enable(String proxyHost, int proxyPort) {
-            Preconditions.checkArgument(registered.compareAndSet(false, true), "Already enabled telegram proxy");
+            Preconditions.checkArgument(enabled.compareAndSet(false, true), "Already enabled telegram proxy");
             Proxy ps = new Proxy(ProxySelector.getDefault(), new ImmutableMap.Builder<String, java.net.Proxy>()
                     .put("socket://api.telegram.org:443",
                             new java.net.Proxy(java.net.Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)))
