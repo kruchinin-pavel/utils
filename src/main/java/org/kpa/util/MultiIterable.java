@@ -10,34 +10,33 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class MultiIterable<T> implements Iterable<T> {
-    private final Iterable<Iterable<T>> iterables;
+public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
+    private final Iterable<Iterable<? extends T>> iterables;
     private final Comparator<T> comparator;
-    private final Logger logger = LoggerFactory.getLogger(MultiIterable.class);
 
-    public static <R extends Comparable<R>> Iterable<R> create(Iterable<Iterable<R>> iterables) {
-        return new MultiIterable<>(iterables, Comparator.naturalOrder());
+    public static <R extends Comparable<R>> Iterable<R> create(Iterable<Iterable<? extends R>> iterables) {
+        return new MultiIterable<R>(iterables, Comparator.naturalOrder());
     }
 
-    public static <R extends Comparable<R>> Iterable<R> create(Iterable<R>... iterables) {
-        List<Iterable<R>> iterables1 = new ArrayList<>(Arrays.asList(iterables));
+    public static <R extends Comparable<R>> Iterable<R> create(Iterable<? extends R>... iterables) {
+        List<Iterable<? extends R>> iterables1 = new ArrayList<>(Arrays.asList(iterables));
         iterables1.removeAll(Collections.singleton(null));
         return new MultiIterable<>(iterables1, Comparator.naturalOrder());
     }
 
-    public MultiIterable(Iterable<Iterable<T>> iterables, Comparator<T> comparator) {
+    public MultiIterable(Iterable<Iterable<? extends T>> iterables, Comparator<T> comparator) {
         this.iterables = iterables;
         this.comparator = comparator;
     }
 
     @Override
     public Iterator<T> iterator() {
-        List<PeekIterator<T>> iterators = new ArrayList<>(StreamSupport.stream(iterables.spliterator(), false)
+        List<PeekIterator<? extends T>> iterators = new ArrayList<>(StreamSupport.stream(iterables.spliterator(), false)
                 .map(PeekIterator::wrap)
                 .collect(Collectors.toList()));
 
         return new Iterator<T>() {
-            private PeekIterator<T> iter;
+            private PeekIterator<? extends T> iter;
 
             @Override
             public boolean hasNext() {
@@ -62,7 +61,7 @@ public class MultiIterable<T> implements Iterable<T> {
         };
     }
 
-    private void sort(List<PeekIterator<T>> iterators) {
+    private void sort(List<PeekIterator<? extends T>> iterators) {
         AtomicBoolean needRemove = new AtomicBoolean();
         Collections.sort(iterators, (o1, o2) -> {
             try {
