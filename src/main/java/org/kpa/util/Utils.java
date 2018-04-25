@@ -1,6 +1,7 @@
 package org.kpa.util;
 
 import com.google.common.base.Strings;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.supercsv.io.CsvMapReader;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -140,5 +142,22 @@ public class Utils {
 
     public static String valOrNull(String val) {
         return Strings.isNullOrEmpty(val) ? null : val;
+    }
+
+    public static <T, R> Iterable<R> convert(Iterable<T> rcs, Function<T, R> converter) {
+        return () -> new Iterator<R>() {
+            Iterator<T> iterator = rcs.iterator();
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public R next() {
+                return converter.apply(iterator.next());
+            }
+
+        };
     }
 }
