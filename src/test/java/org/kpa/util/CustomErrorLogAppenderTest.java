@@ -20,8 +20,8 @@ public class CustomErrorLogAppenderTest {
         CustomErrorLogAppender.registerErrorHandler(errors::add);
 
         for (int i = 0; i < 100; i++) {
-            RuntimeException e = new RuntimeException("Testing exception");
-            logger.error("Testing Exception happened: " + e.getMessage(), e);
+            RuntimeException e = new RuntimeException("Runtime formatted message");
+            logger.error("Testing Exception happened: {}", e.getMessage(), e);
         }
         logger.info("Messages being sent to telegram:\n\t{}", Joiner.on("\n\t").join(errors));
         Thread.sleep(100);

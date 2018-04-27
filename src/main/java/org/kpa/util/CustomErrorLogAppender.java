@@ -53,7 +53,7 @@ public class CustomErrorLogAppender<E> extends AppenderBase<E> {
             }
             queue.add(msgId);
             String text = event.getLevel() + " thread " + event.getThreadName() + " at " +
-                    dateFormatter.format(ZonedDateTime.now()) + ": " + event.getMessage() + ":\n";
+                    dateFormatter.format(ZonedDateTime.now()) + ": " + event.getFormattedMessage() + ":\n";
             text += Joiner.on("\n\t").join(event.getCallerData());
             return text;
         }
