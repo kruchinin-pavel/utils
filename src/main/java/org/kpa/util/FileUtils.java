@@ -1,8 +1,12 @@
 package org.kpa.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
+import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.FileSystemManager;
+import org.apache.commons.vfs2.VFS;
 
 import java.io.*;
 import java.nio.file.FileSystem;
@@ -35,7 +39,17 @@ public class FileUtils {
 
     public static InputStream getInputStream(String path) throws IOException {
         InputStream is;
-        if (path.endsWith("gz")) {
+        if (path.contains("!") &&
+                Splitter.on("!").trimResults().omitEmptyStrings().split(path).iterator().next().endsWith(".tar.gz")) {
+            FileSystemManager fsManager = VFS.getManager();
+            FileObject tz;
+            try {
+                tz = fsManager.resolveFile(path);
+            } catch (org.apache.commons.vfs2.FileSystemException e) {
+                tz = fsManager.resolveFile(Paths.get(path).toAbsolutePath().toString());
+            }
+            return tz.getContent().getInputStream();
+        } else if (path.endsWith("gz")) {
             is = new GZIPInputStream(Files.newInputStream(Paths.get(path)));
         } else {
             is = Files.newInputStream(Paths.get(path));
@@ -138,15 +152,25 @@ public class FileUtils {
     public static List<String> list(Iterable<String> args) {
         List<String> params = new ArrayList<>();
         args.forEach(arg -> {
-            Path p = Paths.get(arg);
-            if (Files.isDirectory(p)) {
-                try {
-                    params.addAll(Files.find(p, 100, (path, basicFileAttributes) -> Files.isRegularFile(path)).map(Path::toString).collect(Collectors.toList()));
-                } catch (IOException e) {
-                    throw new IllegalArgumentException(e);
+            try {
+                if (arg.endsWith(".tar.gz")) {
+                    Path path = Paths.get(arg).toAbsolutePath();
+                    Preconditions.checkArgument(Files.isRegularFile(path), "Not exits: %s", path);
+                    FileSystemManager fsManager = VFS.getManager();
+                    FileObject tz = fsManager.resolveFile("tgz://" + path);
+                    for (FileObject fo : tz.getChildren()) {
+                        params.add(fo.toString());
+                    }
+                } else {
+                    Path p = Paths.get(arg);
+                    if (Files.isDirectory(p)) {
+                        params.addAll(Files.find(p, 100, (path, basicFileAttributes) -> Files.isRegularFile(path)).map(Path::toString).collect(Collectors.toList()));
+                    } else if (Files.isRegularFile(p)) {
+                        params.add(p.toString());
+                    }
                 }
-            } else if (Files.isRegularFile(p)) {
-                params.add(p.toString());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         });
         Preconditions.checkArgument(params.size() > 0, "Nothing found in directories: %s", Arrays.asList(args));

@@ -28,5 +28,13 @@ public class TelegramBotTest {
 
     }
 
+    @Test
+    public void testLoadStateGz() {
+        HashSet<TelegramBot.ChatInfo> set = new HashSet<>(Utils.asList(Json.iterableFile("src/test/resources/org/kpa/util/telegram/chats_PROD.json.gz", TelegramBot.ChatInfo.class)));
+        logger.info("Set is {}", set);
+        assertEquals(3, set.size());
+
+    }
+
 
 }
