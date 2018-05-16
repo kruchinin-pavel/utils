@@ -23,13 +23,13 @@ public class Csv {
 
     public static <T extends Map<String, Object>> CloseableFlushableConsumer<T> writeTo(String fileName) {
         return new CloseableFlushableConsumer<T>() {
-            final CsvMapWriter csvMapWriter = new CsvMapWriter(FileUtils.newBufferedWriter(fileName), CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE);
+            final CachedVal<CsvMapWriter> csvMapWriter = new CachedVal<>(() -> new CsvMapWriter(FileUtils.newBufferedWriter(fileName), CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE));
             private String[] cols = null;
 
             @Override
             public void close() {
                 try {
-                    csvMapWriter.close();
+                    csvMapWriter.get().close();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -41,9 +41,9 @@ public class Csv {
                     Map<String, Object> vals = obj;
                     if (cols == null) {
                         cols = vals.keySet().toArray(new String[0]);
-                        csvMapWriter.writeHeader(cols);
+                        csvMapWriter.get().writeHeader(cols);
                     }
-                    csvMapWriter.write(vals, cols);
+                    csvMapWriter.get().write(vals, cols);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -52,7 +52,7 @@ public class Csv {
 
             @Override
             public void flush() throws IOException {
-                csvMapWriter.flush();
+                csvMapWriter.get().flush();
             }
         };
     }
