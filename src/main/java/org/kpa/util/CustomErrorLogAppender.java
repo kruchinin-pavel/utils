@@ -60,10 +60,9 @@ public class CustomErrorLogAppender<E> extends AppenderBase<E> {
         return null;
     }
 
-    public static Logger registerErrorHandler(Consumer<String> bot) {
+    public static void registerErrorHandler(Consumer<String> bot) {
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
         PatternLayoutEncoder ple = new PatternLayoutEncoder();
-
         ple.setPattern("%date %level [%thread] %logger{10} [%file:%line] %msg%n");
         ple.setContext(lc);
         ple.start();
@@ -71,9 +70,7 @@ public class CustomErrorLogAppender<E> extends AppenderBase<E> {
         fileAppender.setContext(lc);
         fileAppender.start();
 
-        Logger logger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-        logger.addAppender(fileAppender);
-        return logger;
+        lc.getLoggerList().forEach(logger -> logger.addAppender(fileAppender));
     }
 
 
