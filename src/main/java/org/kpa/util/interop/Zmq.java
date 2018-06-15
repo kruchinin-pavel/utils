@@ -2,6 +2,8 @@ package org.kpa.util.interop;
 
 import com.google.common.base.Strings;
 import org.kpa.util.AutoCloseableConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zeromq.ZMQ;
 
 public class Zmq implements AutoCloseableConsumer<String> {
@@ -10,6 +12,7 @@ public class Zmq implements AutoCloseableConsumer<String> {
     private final ZMQ.Socket receiver;
     private final ZMQ.Socket sender;
     private final ZMQ.Context context;
+    private static final Logger log = LoggerFactory.getLogger(Zmq.class);
 
     private Zmq(int sendToPort, String listenFromAdress) {
         this.sendToPort = sendToPort;
@@ -19,6 +22,7 @@ public class Zmq implements AutoCloseableConsumer<String> {
         if (sendToPort > 0) {
             sender = context.socket(ZMQ.PUB);
             sender.bind(String.format("tcp://*:%s", sendToPort));
+            log.info("Publishing to port: {}", sendToPort);
         } else {
             sender = null;
         }
@@ -28,6 +32,7 @@ public class Zmq implements AutoCloseableConsumer<String> {
             receiver.connect(listenFromAdress);
             receiver.setRcvHWM(0);
             receiver.subscribe("".getBytes());
+            log.info("Receiving from: {}", listenFromAdress);
         } else {
             receiver = null;
         }
@@ -39,7 +44,23 @@ public class Zmq implements AutoCloseableConsumer<String> {
     }
 
     public String tryReceive() {
-        return receiver.recvStr(ZMQ.NOBLOCK);
+        return tryReceive(0);
+    }
+
+    public String tryReceive(long timeOutMillis) {
+        long upTime = System.currentTimeMillis() + timeOutMillis;
+        String str;
+        while ((str = receiver.recvStr(ZMQ.NOBLOCK)) == null) {
+            if (System.currentTimeMillis() >= upTime) {
+                break;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return str;
     }
 
     public boolean send(String str) {

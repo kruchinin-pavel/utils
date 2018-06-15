@@ -10,8 +10,10 @@ import org.supercsv.prefs.CsvPreference;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +23,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static org.kpa.util.InsecureConsumer.secure;
 
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
@@ -160,4 +164,25 @@ public class Utils {
 
         };
     }
+
+    public static List<Integer> getFreePorts(int count) {
+        List<ServerSocket> sockets = new ArrayList<>();
+        try {
+            for (int i = 0; i < count; i++) {
+                sockets.add(new ServerSocket(0));
+            }
+            return sockets.stream().map(ServerSocket::getLocalPort).collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            sockets.forEach(s -> {
+                try {
+                    s.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
 }
