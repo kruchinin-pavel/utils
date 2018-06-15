@@ -1,75 +1,103 @@
 import time
+from sys import exit
+
 import zmq
 
 
-def publisher(port):
-    context = zmq.Context()
-    socket_ = context.socket(zmq.PUB)
-    print(f"Serving on port: {port}")
-    socket_.bind("tcp://*:%s" % port)
-    return socket_
+class Java:
+    cmds = {}
+    close_code = 0
 
+    def add_cmd(self, cmd, func):
+        self.cmds[cmd] = func
 
-def subscriber(adress, topic=""):
-    context = zmq.Context()
-    socket_ = context.socket(zmq.SUB)
-    print(f"Collecting updates from server: {adress}")
-    socket_.connect(adress)
-    socket_.setsockopt_string(zmq.SUBSCRIBE, topic)
-    return socket_
+    def __init__(self, send_to_port, listen_from_address, default_cmd=lambda java_, msg: java_.send(msg)):
+        self.pub = self.publisher(send_to_port)
+        self.sub = self.subscriber(listen_from_address)
+        self.add_cmd("TEST", lambda java_, cmd: java_.send("HB"))
+        self.add_cmd("CLOSE", lambda java_, cmd: exit(0))
+        self.default_cmd = default_cmd
 
-
-def read(socket_):
-    try:
-        return socket_.recv(flags=zmq.NOBLOCK).split()
-    except zmq.Again:
-        return None, None
-
-
-if __name__ == '__main__':
-    import signal
-    import sys
-
-    mustExit = 0
-
-
-    def signal_handler(signal, frame):
-        print(f'{signal} caught. set flag to exit.')
-        global mustExit
-        mustExit = 1
-
-
-    if len(sys.argv) != 3:
-        print("Params: send_to_port listen_address")
-        print(f"Current: {sys.argv}")
-        exit(101)
-
-    count = 0
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    with publisher(sys.argv[1]) as pub, subscriber(sys.argv[2]) as sub:
-        cnt = 0
-        while mustExit == 0:
-            val = read(sub)
+    def run(self):
+        while self.close_code == 0:
+            val = self.read()
             if len(val) == 2:
                 msg = val[1]
             else:
                 msg = val[0]
             if msg is not None:
                 msg = msg.decode("utf-8")
-                if "CLOSE" == msg:
-                    print("Got close command")
-                    break
-                elif "TEST" == msg:
-                    pub.send_string("HB")
+                cmd = msg.split(" ")[0]
+                if cmd in self.cmds:
+                    print(f"Processing command: {cmd}")
+                    self.cmds[cmd](self, msg)
                 else:
-                    pub.send_string(msg)
-            print("loop")
+                    print(f"Processing default command")
+                    self.default_cmd(self, msg)
             sys.stdout.flush()
             time.sleep(.3)
-            cnt += 1
-        print("Sending bye")
-        pub.send_string("BYE")
+            sys.stdout.flush()
+        print(f"Java completed: close_code={self.close_code}")
+
+    def read(self):
+        try:
+            return self.sub.recv(flags=zmq.NOBLOCK).split()
+        except zmq.Again:
+            return None, None
+
+    def send(self, msg):
+        self.pub.send_string(msg)
+
+    def close(self):
+        self.close_code = 1
+
+    def __enter__(self):
+        self.pub.__enter__()
+        self.sub.__enter__()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.term()
+        self.pub.__exit__(args, kwargs)
+        self.sub.__exit__(args, kwargs)
+
+    def term(self):
+        self.close()
+        self.pub.send_string("BYE")
+
+    @staticmethod
+    def publisher(port):
+        context = zmq.Context()
+        socket_ = context.socket(zmq.PUB)
+        print(f"Serving on port: {port}")
+        socket_.bind("tcp://*:%s" % port)
+        return socket_
+
+    @staticmethod
+    def subscriber(adress, topic=""):
+        context = zmq.Context()
+        socket_ = context.socket(zmq.SUB)
+        print(f"Collecting updates from server: {adress}")
+        socket_.connect(adress)
+        socket_.setsockopt_string(zmq.SUBSCRIBE, topic)
+        return socket_
+
+
+if __name__ == '__main__':
+    import signal
+    import sys
+
+    if len(sys.argv) != 3:
+        print("Params: send_to_port listen_address")
+        print(f"Current: {sys.argv}")
+        exit(101)
+
+    signal.signal(signal.SIGINT, lambda: exit(0))
+    signal.signal(signal.SIGTERM, lambda: exit(0))
+
+    with Java(sys.argv[1], sys.argv[2]) as java:
+        java.run()
+        print("loop")
+
     print("Exited")
     sys.stdout.flush()
