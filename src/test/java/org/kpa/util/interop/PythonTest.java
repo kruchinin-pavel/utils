@@ -11,6 +11,7 @@ public class PythonTest {
 
     public static void main(String[] args) throws InterruptedException, TimeoutException {
         try (Python python = Python.createSubprocess("src/test/python/zmq_echo.py")) {
+//        try (Python python = Python.connectToExternal(44707, "tcp://localhost:37465")) {
             python.waitForLive();
             Preconditions.checkArgument(python.isAlive());
             log.info("Python successfully started: {}", python);

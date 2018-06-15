@@ -1,5 +1,7 @@
 import time
+import sys
 from sys import exit
+import signal
 
 import zmq
 
@@ -83,21 +85,19 @@ class Java:
         return socket_
 
 
-if __name__ == '__main__':
-    import signal
-    import sys
-
+def register():
     if len(sys.argv) != 3:
         print("Params: send_to_port listen_address")
         print(f"Current: {sys.argv}")
         exit(101)
-
     signal.signal(signal.SIGINT, lambda: exit(0))
     signal.signal(signal.SIGTERM, lambda: exit(0))
+    return Java(sys.argv[1], sys.argv[2])
 
-    with Java(sys.argv[1], sys.argv[2]) as java:
+
+if __name__ == '__main__':
+    with register() as java:
         java.run()
-        print("loop")
 
     print("Exited")
     sys.stdout.flush()
