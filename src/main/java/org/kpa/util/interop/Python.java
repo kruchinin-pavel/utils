@@ -4,7 +4,10 @@ package org.kpa.util.interop;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import org.kpa.util.Json;
-import org.kpa.util.interop.msgs.*;
+import org.kpa.util.interop.msgs.Bye;
+import org.kpa.util.interop.msgs.Close;
+import org.kpa.util.interop.msgs.Message;
+import org.kpa.util.interop.msgs.TestRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,11 +29,9 @@ public class Python<T> implements AutoCloseable {
     private final Thread thread;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Object monitor = new Object();
-    private final Class<T> userMessagesClass;
+    private Class<T> userMessagesClass;
 
-    private Python(String scriptPath, Class<T> userMessagesClass, String pythonAddr, int javaPort, Consumer<T> replies) {
-        this.userMessagesClass = userMessagesClass;
-        this.msgConsumer = replies;
+    private Python(String scriptPath, String pythonAddr, int javaPort) {
         if (scriptPath != null) {
             File dir = Paths.get(scriptPath).getParent().toFile();
             process = new ExtProcess(dir,
@@ -72,10 +73,19 @@ public class Python<T> implements AutoCloseable {
         thread.start();
     }
 
+    public void setMsgConsumer(Class<T> userMessagesClass, Consumer<T> msgConsumer) {
+        this.userMessagesClass = userMessagesClass;
+        this.msgConsumer = msgConsumer;
+    }
+
+
     private Object tryRead(String str) {
         try {
             return Json.readObject(str, Message.class);
         } catch (Exception e) {
+            if (userMessagesClass == null) {
+                throw e;
+            }
             return Json.readObject(str, userMessagesClass);
         }
     }
@@ -143,12 +153,12 @@ public class Python<T> implements AutoCloseable {
                 '}';
     }
 
-    public static <R> Python connectToExternal(int javaPort, String pythonAddr, Class<R> userMessagesClass, Consumer<R> consumer) {
-        return new Python<>(null, userMessagesClass, pythonAddr, javaPort, consumer);
+    public static <R> Python connectToExternal(int javaPort, String pythonAddr) {
+        return new Python<>(null, pythonAddr, javaPort);
     }
 
-    public static <R> Python createSubprocess(String scriptPath, Class<R> userMessagesClass, Consumer<R> consumer) {
+    public static <R> Python createSubprocess(String scriptPath) {
         List<Integer> ports = getFreePorts(2);
-        return new Python<>(scriptPath, userMessagesClass, Integer.toString(ports.get(0)), ports.get(1), consumer);
+        return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1));
     }
 }
