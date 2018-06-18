@@ -3,6 +3,8 @@ package org.kpa.util.interop;
 
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
+import org.kpa.util.Json;
+import org.kpa.util.interop.msgs.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +43,19 @@ public class Python implements AutoCloseable {
             while (!Thread.currentThread().isInterrupted()) {
                 String str = zmq.tryReceive(0);
                 if (!Strings.isNullOrEmpty(str)) {
-                    if ("BYE".equals(str)) isAliveTmout = -1;
-                    else isAliveTmout = System.currentTimeMillis() + 3000;
-                    if (!"HB".equals(str)) {
-                        replies.add(str);
+                    try {
+                        Message msg = Json.readObject(str, Message.class);
+                        if (msg instanceof Bye) isAliveTmout = -1;
+                        else isAliveTmout = System.currentTimeMillis() + 3000;
+                        if (!(msg instanceof Heartbeat)) {
+                            replies.add(str);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error processing incoming event: " + str, e);
                     }
                 }
                 if (isAliveTmout - System.currentTimeMillis() < 1000) {
-                    zmq.send("TEST");
+                    zmq.send(Json.writeObject(new TestRequest()));
                 }
                 try {
                     Thread.sleep(500);
@@ -66,6 +73,10 @@ public class Python implements AutoCloseable {
 
     public boolean isAlive() {
         return isAliveTmout > System.currentTimeMillis();
+    }
+
+    public boolean send(Message str) {
+        return zmq.send(Json.writeObject(str));
     }
 
     public boolean send(String str) {
@@ -100,7 +111,7 @@ public class Python implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        zmq.send("CLOSE");
+        send(new Close());
         try {
             waitForNotLive();
         } catch (Exception e) {
