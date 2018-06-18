@@ -10,25 +10,27 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static org.kpa.util.Utils.getFreePorts;
 
-public class Python implements AutoCloseable {
+public class Python<T> implements AutoCloseable {
     private final Zmq zmq;
     private final ExtProcess process;
     private final Logger logger = LoggerFactory.getLogger(Python.class);
-    private Deque<Object> replies = new LinkedBlockingDeque<>();
+    private Consumer<T> msgConsumer;
     private volatile long isAliveTmout = -1;
     private final Thread thread;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Object monitor = new Object();
+    private final Class<T> userMessagesClass;
 
-    private Python(String scriptPath, String pythonAddr, int javaPort) {
+    private Python(String scriptPath, Class<T> userMessagesClass, String pythonAddr, int javaPort, Consumer<T> replies) {
+        this.userMessagesClass = userMessagesClass;
+        this.msgConsumer = replies;
         if (scriptPath != null) {
             File dir = Paths.get(scriptPath).getParent().toFile();
             process = new ExtProcess(dir,
@@ -47,11 +49,11 @@ public class Python implements AutoCloseable {
                 String str = zmq.tryReceive(0);
                 if (!Strings.isNullOrEmpty(str)) {
                     try {
-                        Message msg = Json.readObject(str, Message.class);
+                        Object msg = tryRead(str);
                         if (msg instanceof Bye) isAliveTmout = -1;
                         else isAliveTmout = System.currentTimeMillis() + 3000;
-                        if (!(msg instanceof Heartbeat)) {
-                            replies.add(str);
+                        if (userMessagesClass.isAssignableFrom(msg.getClass())) {
+                            this.msgConsumer.accept((T) msg);
                         }
                     } catch (Exception e) {
                         throw new RuntimeException("Error processing incoming event: " + str, e);
@@ -68,6 +70,14 @@ public class Python implements AutoCloseable {
             }
         });
         thread.start();
+    }
+
+    private Object tryRead(String str) {
+        try {
+            return Json.readObject(str, Message.class);
+        } catch (Exception e) {
+            return Json.readObject(str, userMessagesClass);
+        }
     }
 
     public long getIsAliveTmout() {
@@ -133,12 +143,12 @@ public class Python implements AutoCloseable {
                 '}';
     }
 
-    public static Python connectToExternal(int javaPort, String pythonAddr) {
-        return new Python(null, pythonAddr, javaPort);
+    public static <R> Python connectToExternal(int javaPort, String pythonAddr, Class<R> userMessagesClass, Consumer<R> consumer) {
+        return new Python<>(null, userMessagesClass, pythonAddr, javaPort, consumer);
     }
 
-    public static Python createSubprocess(String scriptPath) {
+    public static <R> Python createSubprocess(String scriptPath, Class<R> userMessagesClass, Consumer<R> consumer) {
         List<Integer> ports = getFreePorts(2);
-        return new Python(scriptPath, Integer.toString(ports.get(0)), ports.get(1));
+        return new Python<>(scriptPath, userMessagesClass, Integer.toString(ports.get(0)), ports.get(1), consumer);
     }
 }
