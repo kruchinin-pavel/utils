@@ -8,6 +8,8 @@ import org.kpa.util.interop.msgs.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.nio.file.Paths;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -28,7 +30,8 @@ public class Python implements AutoCloseable {
 
     private Python(String scriptPath, String pythonAddr, int javaPort) {
         if (scriptPath != null) {
-            process = new ExtProcess(
+            File dir = Paths.get(scriptPath).getParent().toFile();
+            process = new ExtProcess(dir,
                     outStr -> logger.info(">> {}", outStr),
                     "python3.6",
                     scriptPath,

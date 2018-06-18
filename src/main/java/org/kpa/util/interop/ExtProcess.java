@@ -6,9 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Paths;
 import java.util.function.Consumer;
 
 public class ExtProcess implements AutoCloseable {
@@ -17,10 +17,10 @@ public class ExtProcess implements AutoCloseable {
     private final Logger logger = LoggerFactory.getLogger(Python.class);
     private final Thread thread;
 
-    public ExtProcess(Consumer<String> output, String... commands) {
+    public ExtProcess(File directory, Consumer<String> output, String... commands) {
         try {
             ProcessBuilder bldr = new ProcessBuilder(commands);
-            bldr.directory(Paths.get(commands[0]).getParent().toFile());
+            if(directory!=null) bldr.directory(directory);
             process = bldr.start();
             BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()), 10);
             BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()), 10);
