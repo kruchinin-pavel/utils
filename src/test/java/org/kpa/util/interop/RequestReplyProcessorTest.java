@@ -35,7 +35,7 @@ public class RequestReplyProcessorTest {
         processor.request(new Req(1), 1_000, r -> sucCnt.incrementAndGet(), (r, e) -> failCnt.incrementAndGet());
         processor.request(new Req(2), 1_000, r -> sucCnt.incrementAndGet(), (r, e) -> failCnt.incrementAndGet());
         processor.reply(new Rep(1));
-        Thread.sleep(1_001);
+        Thread.sleep(2_001);
         assertEquals(1, sucCnt.get());
         assertEquals(1, failCnt.get());
     }
