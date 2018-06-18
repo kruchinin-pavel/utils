@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Paths;
 import java.util.function.Consumer;
 
 public class ExtProcess implements AutoCloseable {
@@ -19,6 +20,7 @@ public class ExtProcess implements AutoCloseable {
     public ExtProcess(Consumer<String> output, String... commands) {
         try {
             ProcessBuilder bldr = new ProcessBuilder(commands);
+            bldr.directory(Paths.get(commands[0]).getParent().toFile());
             process = bldr.start();
             BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()), 10);
             BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()), 10);
