@@ -119,9 +119,13 @@ public class Csv {
     }
 
     public static <T> Iterable<? extends T> fromCsv(String fileName, BiFunction<Map<String, String>, FileRef, T> builder) {
+        return fromCsv(fileName, CsvPreference.EXCEL_PREFERENCE, builder);
+    }
+
+    public static <T> Iterable<? extends T> fromCsv(String fileName, CsvPreference pref, BiFunction<Map<String, String>, FileRef, T> builder) {
         return () -> new Iterator<T>() {
             private final AtomicLong counter = new AtomicLong(-1);
-            private final Iterator<Map<String, String>> csvIter = Csv.readFrom(fileName, CsvPreference.EXCEL_PREFERENCE);
+            private final Iterator<Map<String, String>> csvIter = Csv.readFrom(fileName, pref);
 
             @Override
             public boolean hasNext() {
