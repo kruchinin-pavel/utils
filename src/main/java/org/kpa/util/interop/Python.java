@@ -153,11 +153,11 @@ public class Python<T> implements AutoCloseable {
                 '}';
     }
 
-    public static <R> Python connectToExternal(int javaPort, String pythonAddr) {
+    public static <R> Python<R> connectToExternal(int javaPort, String pythonAddr) {
         return new Python<>(null, pythonAddr, javaPort);
     }
 
-    public static <R> Python createSubprocess(String scriptPath) {
+    public static <R> Python<R> createSubprocess(String scriptPath) {
         List<Integer> ports = getFreePorts(2);
         return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1));
     }
