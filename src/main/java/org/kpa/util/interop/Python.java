@@ -34,10 +34,11 @@ public class Python<T> implements AutoCloseable {
     private Python(String scriptPath, String pythonAddr, int javaPort) {
         if (scriptPath != null) {
             File dir = Paths.get(scriptPath).getParent().toFile();
+            File script = Paths.get(scriptPath).getFileName().toFile();
             process = new ExtProcess(dir,
                     outStr -> logger.info(">> {}", outStr),
                     "python3.6",
-                    scriptPath,
+                    script.toString(),
                     pythonAddr,
                     "tcp://localhost:" + javaPort);
             pythonAddr = "tcp://localhost:" + pythonAddr;
