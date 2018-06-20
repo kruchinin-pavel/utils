@@ -8,8 +8,6 @@ import org.kpa.util.interop.msgs.Bye;
 import org.kpa.util.interop.msgs.Close;
 import org.kpa.util.interop.msgs.Message;
 import org.kpa.util.interop.msgs.TestRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -23,7 +21,6 @@ import static org.kpa.util.Utils.getFreePorts;
 public class Python<T> implements AutoCloseable {
     private final Zmq zmq;
     private final ExtProcess process;
-    private final Logger logger = LoggerFactory.getLogger(Python.class);
     private Consumer<T> msgConsumer;
     private volatile long isAliveTmout = -1;
     private final Thread thread;
@@ -31,12 +28,12 @@ public class Python<T> implements AutoCloseable {
     private final Object monitor = new Object();
     private Class<T> userMessagesClass;
 
-    private Python(String scriptPath, String pythonAddr, int javaPort) {
+    private Python(String scriptPath, String pythonAddr, int javaPort, Consumer<String> pythonOutput) {
         if (scriptPath != null) {
             File dir = Paths.get(scriptPath).getParent().toFile();
             File script = Paths.get(scriptPath).getFileName().toFile();
             process = new ExtProcess(dir,
-                    outStr -> logger.info(">> {}", outStr),
+                    pythonOutput,
                     "python3.6",
                     script.toString(),
                     pythonAddr,
@@ -155,11 +152,11 @@ public class Python<T> implements AutoCloseable {
     }
 
     public static <R> Python<R> connectToExternal(int javaPort, String pythonAddr) {
-        return new Python<>(null, pythonAddr, javaPort);
+        return new Python<>(null, pythonAddr, javaPort, null);
     }
 
-    public static <R> Python<R> createSubprocess(String scriptPath) {
+    public static <R> Python<R> createSubprocess(String scriptPath, Consumer<String> pythonOutput) {
         List<Integer> ports = getFreePorts(2);
-        return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1));
+        return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1), pythonOutput);
     }
 }
