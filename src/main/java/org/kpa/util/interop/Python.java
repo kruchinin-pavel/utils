@@ -155,6 +155,11 @@ public class Python<T> implements AutoCloseable {
         return new Python<>(null, pythonAddr, javaPort, null);
     }
 
+    public static <R> Python<R> createSubprocess(String scriptPath) {
+        return createSubprocess(scriptPath, s -> {
+        });
+    }
+
     public static <R> Python<R> createSubprocess(String scriptPath, Consumer<String> pythonOutput) {
         List<Integer> ports = getFreePorts(2);
         return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1), pythonOutput);
