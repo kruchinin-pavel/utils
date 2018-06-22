@@ -15,6 +15,12 @@ public class RequestReplyProcessor<T> {
     private final BiFunction<T, T, Boolean> replyByRequestFunction;
     private final Map<T, T> repliesByRequest = new HashMap<>();
     private final ExecutorService service = DaemonNamedFactory.newCachedThreadPool("req-rep");
+    private Consumer<T> onRequestCome;
+
+    public RequestReplyProcessor<T> onRequestCome(Consumer<T> onRequestCome) {
+        this.onRequestCome = onRequestCome;
+        return this;
+    }
 
     public int openRequest() {
         synchronized (repliesByRequest) {
@@ -44,6 +50,7 @@ public class RequestReplyProcessor<T> {
         synchronized (repliesByRequest) {
             checkArgument(repliesByRequest.put(request, null) == null, "Already contains request: %s", request);
         }
+        if(onRequestCome!=null) onRequestCome.accept(request);
         return service.submit(() -> {
             long upTime = System.currentTimeMillis() + timeout;
             try {
