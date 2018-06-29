@@ -16,9 +16,15 @@ public class RequestReplyProcessor<T> {
     private final Map<T, T> repliesByRequest = new HashMap<>();
     private final ExecutorService service = DaemonNamedFactory.newCachedThreadPool("req-rep");
     private Consumer<T> onRequestCome;
+    private Consumer<Object> unprocessedMessageCome;
 
     public RequestReplyProcessor<T> onRequestCome(Consumer<T> onRequestCome) {
         this.onRequestCome = onRequestCome;
+        return this;
+    }
+
+    public RequestReplyProcessor<T> onLostMessage(Consumer<Object> unprocessedMessageCome) {
+        this.unprocessedMessageCome = unprocessedMessageCome;
         return this;
     }
 
@@ -32,14 +38,16 @@ public class RequestReplyProcessor<T> {
         this.replyByRequestFunction = replyByRequestFunction;
     }
 
-    public void reply(T reply) {
+    public void reply(T incomeMesasge) {
+        T v;
         synchronized (repliesByRequest) {
-            repliesByRequest.keySet().stream()
-                    .filter(r -> replyByRequestFunction.apply(r, reply))
-                    .findFirst().ifPresent(v -> {
-                repliesByRequest.replace(v, reply);
-            });
+            v = repliesByRequest.keySet().stream()
+                    .filter(r -> replyByRequestFunction.apply(r, incomeMesasge))
+                    .findFirst().orElse(null);
+            if (v != null) repliesByRequest.replace(v, incomeMesasge);
+
         }
+        if (v == null) unprocessedMessageCome.accept(incomeMesasge);
     }
 
     public <R extends T> Future<R> request(T request, long timeout) {
@@ -50,7 +58,7 @@ public class RequestReplyProcessor<T> {
         synchronized (repliesByRequest) {
             checkArgument(repliesByRequest.put(request, null) == null, "Already contains request: %s", request);
         }
-        if(onRequestCome!=null) onRequestCome.accept(request);
+        if (onRequestCome != null) onRequestCome.accept(request);
         return service.submit(() -> {
             long upTime = System.currentTimeMillis() + timeout;
             try {
