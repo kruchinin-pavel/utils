@@ -28,13 +28,13 @@ public class Python<T> implements AutoCloseable {
     private final Object monitor = new Object();
     private Class<T> userMessagesClass;
 
-    private Python(String scriptPath, String pythonAddr, int javaPort, Consumer<String> pythonOutput) {
+    private Python(String pythonPath, String scriptPath, String pythonAddr, int javaPort, Consumer<String> pythonOutput) {
         if (scriptPath != null) {
             File dir = Paths.get(scriptPath).getParent().toFile();
             File script = Paths.get(scriptPath).getFileName().toFile();
             process = new ExtProcess(dir,
                     pythonOutput,
-                    "python3.6",
+                    pythonPath,
                     script.toString(),
                     pythonAddr,
                     "tcp://localhost:" + javaPort);
@@ -152,16 +152,25 @@ public class Python<T> implements AutoCloseable {
     }
 
     public static <R> Python<R> connectToExternal(int javaPort, String pythonAddr) {
-        return new Python<>(null, pythonAddr, javaPort, null);
+        return new Python<>(null, null, pythonAddr, javaPort, null);
+    }
+
+    public static <R> Python<R> createSubprocess(String pythonPath, String scriptPath) {
+        return createSubprocess(pythonPath, scriptPath, s -> {
+        });
     }
 
     public static <R> Python<R> createSubprocess(String scriptPath) {
-        return createSubprocess(scriptPath, s -> {
+        return createSubprocess("python3.6", scriptPath, s -> {
         });
     }
 
     public static <R> Python<R> createSubprocess(String scriptPath, Consumer<String> pythonOutput) {
+        return createSubprocess("python3.6", scriptPath, pythonOutput);
+    }
+
+    public static <R> Python<R> createSubprocess(String pythonPath, String scriptPath, Consumer<String> pythonOutput) {
         List<Integer> ports = getFreePorts(2);
-        return new Python<>(scriptPath, Integer.toString(ports.get(0)), ports.get(1), pythonOutput);
+        return new Python<>(pythonPath, scriptPath, Integer.toString(ports.get(0)), ports.get(1), pythonOutput);
     }
 }
