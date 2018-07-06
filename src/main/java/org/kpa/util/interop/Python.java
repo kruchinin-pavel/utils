@@ -38,7 +38,7 @@ public class Python<T> implements AutoCloseable {
     private Python(String pythonPath, String scriptPath, String pythonAddr, int javaPort, Consumer<String> pythonOutput) {
         if (scriptPath != null) {
             Preconditions.checkArgument(Files.isRegularFile(Paths.get(scriptPath)),
-                    "Not found scrippython script file: %s", scriptPath);
+                    "Not found python script file: %s", scriptPath);
             File dir = Paths.get(scriptPath).getParent().toFile();
             File script = Paths.get(scriptPath).getFileName().toFile();
             process = new ExtProcess(dir,
