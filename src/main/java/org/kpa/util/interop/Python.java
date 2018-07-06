@@ -1,15 +1,18 @@
 package org.kpa.util.interop;
 
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import org.kpa.util.Json;
+import org.kpa.util.Props;
 import org.kpa.util.interop.msgs.Bye;
 import org.kpa.util.interop.msgs.Close;
 import org.kpa.util.interop.msgs.Message;
 import org.kpa.util.interop.msgs.TestRequest;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -17,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static org.kpa.util.Utils.getFreePorts;
+import static org.kpa.util.Utils.stream;
 
 public class Python<T> implements AutoCloseable {
     private final Zmq zmq;
@@ -161,16 +165,21 @@ public class Python<T> implements AutoCloseable {
     }
 
     public static <R> Python<R> createSubprocess(String scriptPath) {
-        return createSubprocess("python3.6", scriptPath, s -> {
+        return createSubprocess(getPython36(), scriptPath, s -> {
         });
     }
 
     public static <R> Python<R> createSubprocess(String scriptPath, Consumer<String> pythonOutput) {
-        return createSubprocess("python3.6", scriptPath, pythonOutput);
+        return createSubprocess(getPython36(), scriptPath, pythonOutput);
     }
 
     public static <R> Python<R> createSubprocess(String pythonPath, String scriptPath, Consumer<String> pythonOutput) {
         List<Integer> ports = getFreePorts(2);
         return new Python<>(pythonPath, scriptPath, Integer.toString(ports.get(0)), ports.get(1), pythonOutput);
+    }
+
+    public static String getPython36() {
+        return stream(Splitter.on(File.pathSeparator).omitEmptyStrings().trimResults().split(Props.getSilent("PATH")))
+                .filter(path -> path.endsWith("python3.6")).findFirst().orElse("python3.6");
     }
 }
