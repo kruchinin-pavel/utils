@@ -20,7 +20,7 @@ public class ExtProcess implements AutoCloseable {
     public ExtProcess(File directory, Consumer<String> output, String... commands) {
         try {
             ProcessBuilder bldr = new ProcessBuilder(commands);
-            if(directory!=null) bldr.directory(directory);
+            if (directory != null) bldr.directory(directory);
             process = bldr.start();
             BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()), 10);
             BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()), 10);
@@ -47,7 +47,7 @@ public class ExtProcess implements AutoCloseable {
             thread.start();
             logger.info("Started command: '{}'", Joiner.on(" ").join(commands));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Unable to start cmd '" + Joiner.on(" ").join(commands) + "'. Reason: " + e.getMessage(), e);
         }
     }
 

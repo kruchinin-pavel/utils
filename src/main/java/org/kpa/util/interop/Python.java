@@ -12,6 +12,7 @@ import org.kpa.util.interop.msgs.Message;
 import org.kpa.util.interop.msgs.TestRequest;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
@@ -179,7 +180,14 @@ public class Python<T> implements AutoCloseable {
     }
 
     public static String getPython36() {
-        return stream(Splitter.on(File.pathSeparator).omitEmptyStrings().trimResults().split(Props.getSilent("PATH")))
-                .filter(path -> path.endsWith("python3.6")).findFirst().orElse("python3.6");
+        return Paths.get(stream(Splitter.on(File.pathSeparator).omitEmptyStrings().trimResults().split(Props.getSilent("PATH")))
+                .filter(path -> {
+                    try {
+                        return Files.list(Paths.get(path))
+                                .anyMatch(file -> file.getFileName().toString().equals("python3.6"));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).findFirst().orElse(""), "python3.6").toString();
     }
 }
