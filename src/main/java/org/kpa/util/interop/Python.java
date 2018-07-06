@@ -1,6 +1,7 @@
 package org.kpa.util.interop;
 
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
@@ -14,6 +15,7 @@ import org.kpa.util.interop.msgs.TestRequest;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -35,6 +37,8 @@ public class Python<T> implements AutoCloseable {
 
     private Python(String pythonPath, String scriptPath, String pythonAddr, int javaPort, Consumer<String> pythonOutput) {
         if (scriptPath != null) {
+            Preconditions.checkArgument(Files.isRegularFile(Paths.get(scriptPath)),
+                    "Not found scrippython script file: %s", scriptPath);
             File dir = Paths.get(scriptPath).getParent().toFile();
             File script = Paths.get(scriptPath).getFileName().toFile();
             process = new ExtProcess(dir,
@@ -183,7 +187,9 @@ public class Python<T> implements AutoCloseable {
         return Paths.get(stream(Splitter.on(File.pathSeparator).omitEmptyStrings().trimResults().split(Props.getSilent("PATH")))
                 .filter(path -> {
                     try {
-                        return Files.list(Paths.get(path))
+                        Path dir = Paths.get(path);
+                        if (!Files.isDirectory(dir)) return false;
+                        return Files.list(dir)
                                 .anyMatch(file -> file.getFileName().toString().equals("python3.6"));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
