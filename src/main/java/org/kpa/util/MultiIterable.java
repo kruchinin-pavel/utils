@@ -13,27 +13,36 @@ import java.util.stream.StreamSupport;
 public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
     private final Iterable<Iterable<? extends T>> iterables;
     private final Comparator<T> comparator;
+    private final Logger logger = LoggerFactory.getLogger(MultiIterable.class);
+    private final boolean logAndIgnoreException;
 
     public static <R extends Comparable<R>> Iterable<R> create(Iterable<Iterable<? extends R>> iterables) {
-        return new MultiIterable<R>(iterables, Comparator.naturalOrder());
+        return new MultiIterable<R>(iterables, Comparator.naturalOrder(), false);
+    }
+
+    public static <R extends Comparable<R>> Iterable<R> ignoreErrors(Iterable<? extends R>... iterables) {
+        return create(true, iterables);
     }
 
     public static <R extends Comparable<R>> Iterable<R> create(Iterable<? extends R>... iterables) {
+        return create(false, iterables);
+    }
+
+    public static <R extends Comparable<R>> Iterable<R> create(boolean logAndIgnoreException, Iterable<? extends R>... iterables) {
         List<Iterable<? extends R>> iterables1 = new ArrayList<>(Arrays.asList(iterables));
         iterables1.removeAll(Collections.singleton(null));
-        return new MultiIterable<>(iterables1, Comparator.naturalOrder());
+        return new MultiIterable<>(iterables1, Comparator.naturalOrder(), logAndIgnoreException);
     }
 
-    public MultiIterable(Iterable<Iterable<? extends T>> iterables, Comparator<T> comparator) {
+    public MultiIterable(Iterable<Iterable<? extends T>> iterables, Comparator<T> comparator, boolean logAndIgnoreException) {
         this.iterables = iterables;
         this.comparator = comparator;
+        this.logAndIgnoreException = logAndIgnoreException;
     }
 
-    @Override
     public Iterator<T> iterator() {
-        List<PeekIterator<? extends T>> iterators = new ArrayList<>(StreamSupport.stream(iterables.spliterator(), false)
-                .map(PeekIterator::wrap)
-                .collect(Collectors.toList()));
+        List<PeekIterator<? extends T>> iterators = StreamSupport.stream(iterables.spliterator(), false)
+                .map(PeekIterator::wrap).collect(Collectors.toList());
 
         return new Iterator<T>() {
             private PeekIterator<? extends T> iter;
@@ -41,7 +50,17 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
             @Override
             public boolean hasNext() {
                 if (iter != null) {
-                    if (!iter.hasNext() || (iterators.size() > 1 && comparator.compare(iter.peekNext(), iterators.get(1).peekNext()) > 0)) {
+                    boolean b = false;
+                    try {
+                        b = iter.hasNext();
+                    } catch (Exception e) {
+                        if (logAndIgnoreException) {
+                            logger.error("Erorr in iterable ignored: " + e.getMessage(), e);
+                        } else {
+                            throw e;
+                        }
+                    }
+                    if (!b || (iterators.size() > 1 && comparator.compare(iter.peekNext(), iterators.get(1).peekNext()) > 0)) {
                         iter = null;
                     }
                 }
