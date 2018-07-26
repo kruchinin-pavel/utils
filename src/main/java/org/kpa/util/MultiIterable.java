@@ -1,6 +1,5 @@
 package org.kpa.util;
 
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +41,7 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
 
     public Iterator<T> iterator() {
         List<PeekIterator<? extends T>> iterators = StreamSupport.stream(iterables.spliterator(), false)
-                .map(PeekIterator::wrap).collect(Collectors.toList());
+                .map(v -> PeekIterator.wrap(v, logAndIgnoreException)).collect(Collectors.toList());
 
         return new Iterator<T>() {
             private PeekIterator<? extends T> iter;
@@ -55,7 +54,7 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
                         b = iter.hasNext();
                     } catch (Exception e) {
                         if (logAndIgnoreException) {
-                            logger.error("Erorr in iterable ignored: " + e.getMessage(), e);
+                            logger.error("Error in iterable ignored: " + e.getMessage(), e);
                         } else {
                             throw e;
                         }
@@ -97,6 +96,7 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
                     return -1;
                 }
                 return comparator.compare(v1, v2);
+
             } catch (NullPointerException e) {
                 throw new RuntimeException(e);
             }
@@ -111,19 +111,31 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
     }
 
     private static class PeekIterator<T> implements Iterator<T> {
+        private final boolean logAndIgnoreException;
         private final Iterator<T> iterator;
         private T next;
+        private static final Logger logger = LoggerFactory.getLogger(PeekIterator.class);
 
-        public PeekIterator(Iterator<T> iterator) {
+        public PeekIterator(Iterator<T> iterator, boolean logAndIgnoreException) {
+            this.logAndIgnoreException = logAndIgnoreException;
             this.iterator = iterator;
         }
 
         @Override
         public boolean hasNext() {
-            if (next == null && iterator.hasNext()) {
-                next = iterator.next();
+            try {
+                if (next == null && iterator.hasNext()) {
+                    next = iterator.next();
+                }
+                return next != null;
+            } catch (Exception e) {
+                if (logAndIgnoreException) {
+                    logger.error("Error in iterable ignored: " + e.getMessage(), e);
+                    return false;
+                } else {
+                    throw e;
+                }
             }
-            return next != null;
         }
 
         @Override
@@ -139,9 +151,8 @@ public class MultiIterable<T extends Comparable<T>> implements Iterable<T> {
             return next;
         }
 
-        public static <R> PeekIterator<R> wrap(Iterable<R> iterable) {
-            Preconditions.checkNotNull(iterable, "iterable is null");
-            return new PeekIterator<R>(iterable.iterator());
+        public static <R> PeekIterator<R> wrap(Iterable<R> iterable, boolean logAndIgnoreException) {
+            return new PeekIterator<R>(iterable.iterator(), logAndIgnoreException);
         }
 
     }
