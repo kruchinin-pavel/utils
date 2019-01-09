@@ -15,8 +15,8 @@ public class TelegramBotTest {
 
 
     public static void main(String[] args) throws InterruptedException {
-//        TelegramBot.Proxy.enable("ljrgf.tgproxy.me", 1080);
-        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", "chats.json");
+        Proxy.enable("ljrgf.tgproxy.me", 1080, "pspartners", "E77W7G2JGEw41FV9mj");
+        TelegramBot bot = TelegramBot.get("MyExtraSuperBot", "480685955:AAHQSzlwpBIfITxoY_4_a1inAqcrE2GpqUQ", "chats.json", "TBot");
         Thread.sleep(100000000);
     }
 

@@ -4,15 +4,15 @@ import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 
-public class Props {
-    private static Function<String, String> customProps;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
-    public static Function<String, String> getCustomProps() {
-        return customProps;
-    }
+public class Props {
+    private static List<Function<String, String>> customProps = new ArrayList<>();
 
     public static void setCustomProps(Function<String, String> customProps) {
-        Props.customProps = customProps;
+        Props.customProps.add(customProps);
     }
 
     public static String getSilent(String propertyName, String defaultVal) {
@@ -37,7 +37,8 @@ public class Props {
         if (Strings.isNullOrEmpty(value)) {
             value = System.getenv(propertyName);
             if (Strings.isNullOrEmpty(value) && customProps != null) {
-                value = customProps.apply(propertyName);
+                value = customProps.stream().map(prop -> prop.apply(propertyName))
+                        .filter(Objects::nonNull).findFirst().orElse(null);
             }
         }
 

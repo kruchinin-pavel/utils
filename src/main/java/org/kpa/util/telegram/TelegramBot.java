@@ -5,30 +5,29 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import org.kpa.util.Json;
 import org.kpa.util.Props;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.ApiContextInitializer;
-import org.telegram.telegrambots.TelegramBotsApi;
-import org.telegram.telegrambots.api.methods.BotApiMethod;
-import org.telegram.telegrambots.api.methods.send.SendMessage;
-import org.telegram.telegrambots.api.objects.Message;
-import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.exceptions.TelegramApiException;
-import org.telegram.telegrambots.exceptions.TelegramApiRequestException;
-import org.telegram.telegrambots.updateshandlers.SentCallback;
+import org.telegram.telegrambots.meta.TelegramBotsApi;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
+import org.telegram.telegrambots.meta.updateshandlers.SentCallback;
 
 import java.io.IOException;
-import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -36,6 +35,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final String token;
     private final String storePath;
     private final String botUserName;
+    private final String botInstanceName;
     private Map<String, BiConsumer<ChatInfo, Message>> secrectCallback = new LinkedHashMap<>();
     private Map<String, BiConsumer<ChatInfo, Message>> callback = new LinkedHashMap<>();
     private final List<ChatInfo> chatSet = new ArrayList<>();
@@ -45,13 +45,16 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final int botId = botCounter.getAndIncrement();
     private static Map<String, TelegramBot> botByName = new HashMap<>();
 
-    private TelegramBot(String botUserName, String token, String storePath) {
+    private TelegramBot(String botUserName, String token, String storePath, String botInstanceName) {
+        this.botInstanceName = botInstanceName;
         Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
         this.storePath = storePath;
         this.token = token;
         this.botUserName = botUserName;
+        ApiContextInitializer.init();
         try {
-            new TelegramBotsApi().registerBot(this);
+            TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
+            telegramBotsApi.registerBot(this);
             loadState();
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
@@ -173,15 +176,18 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     public synchronized void send(ChatInfo msg, String text, boolean async) {
         SendMessage s = new SendMessage();
-        logger.info("Sending message to chatId: {}", msg);
+        logger.info("{} Sending message to chatId: {}", botInstanceName, msg);
         s.setChatId(msg.chatId);
+        if (!Strings.isNullOrEmpty(botInstanceName)) {
+            text = botInstanceName + ": " + text;
+        }
         s.setText(text);
         SendMessage method = new SendMessage(msg.chatId, text);
         if (async) {
             sendApiMethodAsync(method, new SentCallback<Message>() {
                 @Override
                 public void onResult(BotApiMethod<Message> method, Message response) {
-                    logger.debug("Method successful: {}. Resonce: {}", method, response);
+                    logger.debug("Method successful: {}. Responce: {}", method, response);
                 }
 
                 @Override
@@ -226,16 +232,16 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     }
 
 
-    public static synchronized TelegramBot get(String botUserName, String token, String storePath) {
+    public static synchronized TelegramBot get(String botUserName, String token, String storePath, String botInstanceName) {
         String proxy = Props.getSilent("telegram_proxy");
-        if (!Strings.isNullOrEmpty(proxy) && !TelegramBot.Proxy.isEnabled()) {
+        if (!Strings.isNullOrEmpty(proxy) && !Proxy.isEnabled()) {
             int port = 1080;
             Iterator<String> iter = Splitter.on(":").trimResults().omitEmptyStrings().split(proxy).iterator();
             String host = iter.next();
             if (iter.hasNext()) port = Integer.parseInt(iter.next());
-            TelegramBot.Proxy.enable(host, port);
+            Proxy.enable(host, port);
         }
-        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath));
+        return botByName.computeIfAbsent(botUserName, bUN -> new TelegramBot(bUN, token, storePath, botInstanceName));
     }
 
     static {
@@ -312,56 +318,5 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         }
     }
 
-
-    public static class Proxy extends ProxySelector {
-        private final ProxySelector defsel;
-        private final Map<String, java.net.Proxy> proxies;
-        private static AtomicBoolean enabled = new AtomicBoolean();
-
-        private Proxy(ProxySelector def, Map<String, java.net.Proxy> proxies) {
-            defsel = def;
-            this.proxies = proxies;
-        }
-
-        public java.util.List<java.net.Proxy> select(URI uri) {
-            if (uri == null) {
-                throw new IllegalArgumentException("URI can't be null.");
-            }
-            java.net.Proxy proxy = proxies.get(uri.toString());
-            if (proxy != null) {
-                return Collections.singletonList(proxy);
-            }
-            return defsel.select(uri);
-        }
-
-        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
-            logger.info("Connection failed to URI:{} with proxy(if any): {}", uri, proxies.get(uri.toString()));
-        }
-
-        public static boolean isEnabled() {
-            return enabled.get();
-        }
-
-        public static void enable(String proxyHost, int proxyPort) {
-            Preconditions.checkArgument(enabled.compareAndSet(false, true), "Already enabled telegram proxy");
-            logger.info("Enabling telegram proxy: {}:{}", proxyHost, proxyPort);
-            Proxy ps = new Proxy(ProxySelector.getDefault(), new ImmutableMap.Builder<String, java.net.Proxy>()
-                    .put("socket://api.telegram.org:443",
-                            new java.net.Proxy(java.net.Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort)))
-                    .build());
-            ProxySelector.setDefault(ps);
-            Authenticator.setDefault(new Authenticator() {
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    if (proxyHost.equalsIgnoreCase(this.getRequestingHost())) {
-                        return new PasswordAuthentication(
-                                Props.getProperty("telegram_proxy.user", "telegram_proxy.pswd", "", true),
-                                Props.getProperty("telegram_proxy.pswd", "telegram_proxy.pswd", "", true).toCharArray());
-                    }
-                    return super.getPasswordAuthentication();
-                }
-            });
-        }
-
-    }
 
 }

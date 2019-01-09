@@ -40,7 +40,7 @@ dependencies {
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.3'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.3'
     compile 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.3'
-    compile 'org.telegram:telegrambots:3.6'
+    compile 'org.telegram:telegrambots:4.1'
     compile 'org.zeromq:jeromq:0.4.3'
     testCompile 'junit:junit:4.12'
 }
