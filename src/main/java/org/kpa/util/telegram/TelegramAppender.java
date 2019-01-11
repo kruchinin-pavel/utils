@@ -4,7 +4,6 @@ import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.status.ErrorStatus;
 import com.google.common.base.Splitter;
-import org.apache.http.client.config.RequestConfig;
 
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;

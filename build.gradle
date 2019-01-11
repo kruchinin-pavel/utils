@@ -40,8 +40,13 @@ dependencies {
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.3'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.3'
     compile 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.3'
-    compile 'org.telegram:telegrambots:4.1'
+    compile fileTree(dir: 'lib', include: ['*.jar'])
+// TelegramBot dependencies
+//    compile 'org.telegram:telegrambots:4.1'
     compile 'org.zeromq:jeromq:0.4.3'
+    compile 'org.apache.httpcomponents:httpclient:4.5.3'
+    compile 'org.json:json:20160810'
+    compile 'com.google.inject:guice:4.1.0'
     testCompile 'junit:junit:4.12'
 }
 
