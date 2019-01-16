@@ -3,10 +3,16 @@ package org.kpa.util.telegram;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.status.ErrorStatus;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import org.kpa.util.TurnoverCounter;
 
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Paolo Denti
@@ -15,10 +21,11 @@ import java.util.concurrent.locks.ReentrantLock;
  * The append log execution is slow; use it only for critical errors
  */
 public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
-    /**
-     * All synchronization in this class is done via the lock object.
-     */
-    protected final ReentrantLock lock = new ReentrantLock(true);
+    private TelegramBot bot;
+    private final Set<String> messagesBuf = new LinkedHashSet<>();
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
+            5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024));
+
 
     /**
      * It is the layout used for message formatting
@@ -100,8 +107,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
     }
 
 
-    private long lastTimeSentTelegram = 0;
-
+    private TurnoverCounter sentCounter;
     @Override
     public void start() {
         int errors = 0;
@@ -128,9 +134,16 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
             errors++;
         }
 
+        sentCounter = new TurnoverCounter(minInterval, 1);
         if (errors == 0) {
             super.start();
         }
+    }
+
+    @Override
+    public void stop() {
+        if (bot != null) bot.close();
+        super.stop();
     }
 
     @Override
@@ -138,25 +151,21 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         if (!isStarted()) {
             return;
         }
-
-        sendTelegramMessage(eventObject);
+        executor.submit(() -> implSendTelegramMessage(eventObject));
     }
 
 
-    private TelegramBot bot;
-
-    protected void sendTelegramMessage(E eventObject) {
-        lock.lock();
-        try {
-            String messageToSend = layout.doLayout(eventObject);
-            long now = System.currentTimeMillis();
-            if (lastTimeSentTelegram == 0 || (lastTimeSentTelegram + minInterval < now)) {
-                lastTimeSentTelegram = now;
-                bot.broadcast(messageToSend, nonBlocking);
+    private void implSendTelegramMessage(E eventObject) {
+        String messageToSend = layout.doLayout(eventObject);
+        messagesBuf.add(messageToSend);
+        sentCounter.runIfCan(() -> {
+            String join = Joiner.on("\n").join(messagesBuf);
+            messagesBuf.clear();
+            if (join.length() > 200) {
+                join = join.substring(0, 200) + "...";
             }
-        } finally {
-            lock.unlock();
-        }
+            bot.broadcast(join, false);
+        });
     }
 
     private static final String MSG_FORMAT = "%s for the appender named '%s'.";

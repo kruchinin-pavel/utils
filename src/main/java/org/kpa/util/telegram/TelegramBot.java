@@ -7,6 +7,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import org.kpa.util.Json;
 import org.kpa.util.Props;
+import org.kpa.util.RunOnce;
 import org.kpa.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -39,7 +38,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private Map<String, BiConsumer<ChatInfo, Message>> secrectCallback = new LinkedHashMap<>();
     private Map<String, BiConsumer<ChatInfo, Message>> callback = new LinkedHashMap<>();
     private final List<ChatInfo> chatSet = new ArrayList<>();
-    private final AtomicBoolean closed = new AtomicBoolean();
+    private final RunOnce doCLose = new RunOnce();
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
     private static final AtomicInteger botCounter = new AtomicInteger();
     private final int botId = botCounter.getAndIncrement();
@@ -47,7 +46,6 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     private TelegramBot(String botUserName, String token, String storePath, String botInstanceName) {
         this.botInstanceName = botInstanceName;
-        Runtime.getRuntime().addShutdownHook(new Thread(this::close, "shtdnhk-thr"));
         this.storePath = storePath;
         this.token = token;
         this.botUserName = botUserName;
@@ -226,9 +224,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            onClosing();
-        }
+        doCLose.runOnce(this::onClosing);
     }
 
 
