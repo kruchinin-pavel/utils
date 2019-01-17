@@ -138,6 +138,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         if (errors == 0) {
             super.start();
         }
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
     }
 
     @Override
