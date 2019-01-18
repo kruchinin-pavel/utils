@@ -163,7 +163,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
             String join = Joiner.on("\n").join(messagesBuf);
             messagesBuf.clear();
             if (join.length() > 200) {
-                join = join.substring(0, 200) + "...";
+                join = "..." + join.substring(join.length() - 200);
             }
             bot.broadcast(join, false);
         });
