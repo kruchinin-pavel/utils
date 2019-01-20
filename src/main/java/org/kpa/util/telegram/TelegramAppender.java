@@ -3,18 +3,13 @@ package org.kpa.util.telegram;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.status.ErrorStatus;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import org.kpa.util.TurnoverCounter;
-import org.telegram.telegrambots.meta.api.objects.Message;
 
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 
 /**
  * @author Paolo Denti
@@ -23,9 +18,8 @@ import java.util.function.BiConsumer;
  * The append log execution is slow; use it only for critical errors
  */
 public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
+    private final OutputCompressor compressor = new OutputCompressor(200);
     private TelegramBot bot;
-    private volatile String lastMessage = "";
-    private final Set<String> messagesBuf = new LinkedHashSet<>();
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
             5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024));
 
@@ -132,7 +126,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
 
         try {
             bot = TelegramBot.get(botUserName, botToken, chatSessionsFile, botInstanceName);
-            bot.cmd("l", (chatInfo, message) -> bot.send(chatInfo, lastMessage, false));
+            bot.cmd("l", (chatInfo, message) -> bot.send(chatInfo, compressor.getLastMessage(), false));
         } catch (Exception e) {
             internalAddStatus(e.getMessage());
             errors++;
@@ -161,16 +155,8 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
 
     private void implSendTelegramMessage(E eventObject) {
         String messageToSend = layout.doLayout(eventObject);
-        messagesBuf.add(messageToSend);
-        lastMessage = messageToSend;
-        sentCounter.runIfCan(() -> {
-            String join = Joiner.on("\n").join(messagesBuf);
-            messagesBuf.clear();
-            if (join.length() > 200) {
-                join = "..." + join.substring(join.length() - 200);
-            }
-            bot.broadcast(join, false);
-        });
+        compressor.addStr(messageToSend);
+        sentCounter.runIfCan(() -> bot.broadcast(compressor.getStr(), false));
     }
 
     private static final String MSG_FORMAT = "%s for the appender named '%s'.";
