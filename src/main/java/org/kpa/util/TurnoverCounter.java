@@ -22,6 +22,10 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public void runIfCan(Runnable runnable) {
+        runIfCan(runnable, null);
+    }
+
+    public void runIfCan(Runnable runnable, Runnable otherwise) {
         if (canAddValue(1.)) {
             try {
                 addValue(1.);
@@ -29,6 +33,8 @@ public class TurnoverCounter implements Cloneable {
             } catch (ValidationException e) {
                 throw new RuntimeException(e);
             }
+        } else if (otherwise != null) {
+            otherwise.run();
         }
     }
 

@@ -23,9 +23,12 @@ public class OutputCompressor {
         return lastMessage;
     }
 
+    public void clear() {
+        messagesBuf.clear();
+    }
+
     public String getStr() {
         String join = Joiner.on("\n").join(messagesBuf);
-        messagesBuf.clear();
         if (join.length() > masOutputMessageLength) {
             join = "..." + join.substring(join.length() - masOutputMessageLength);
         }

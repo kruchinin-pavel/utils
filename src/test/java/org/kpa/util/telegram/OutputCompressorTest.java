@@ -1,5 +1,6 @@
 package org.kpa.util.telegram;
 
+import com.google.common.base.Strings;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -15,6 +16,9 @@ public class OutputCompressorTest {
         compressor.addStr(lastStr);
         System.out.println(compressor.getStr());
         Assert.assertEquals(lastStr,compressor.getLastMessage());
+        Assert.assertFalse(Strings.isNullOrEmpty(compressor.getStr()));
+        compressor.clear();
+        Assert.assertTrue(Strings.isNullOrEmpty(compressor.getStr()));
     }
 
 }

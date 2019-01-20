@@ -4,6 +4,7 @@ import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.status.ErrorStatus;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import org.kpa.util.TurnoverCounter;
 
 import java.util.List;
@@ -154,9 +155,24 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
     }
 
     private void implSendTelegramMessage(E eventObject) {
-        String messageToSend = layout.doLayout(eventObject);
-        compressor.addStr(messageToSend);
-        sentCounter.runIfCan(() -> bot.broadcast(compressor.getStr(), false));
+        if (eventObject != null) {
+            String messageToSend = layout.doLayout(eventObject);
+            compressor.addStr(messageToSend);
+        }
+        String str = compressor.getStr();
+        if (!Strings.isNullOrEmpty(str)) {
+            sentCounter.runIfCan(() -> {
+                compressor.clear();
+                bot.broadcast(str, false);
+            }, () -> new Thread(() -> {
+                try {
+                    Thread.sleep(minInterval + 100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                executor.submit(() -> implSendTelegramMessage(null));
+            }).start());
+        }
     }
 
     private static final String MSG_FORMAT = "%s for the appender named '%s'.";
