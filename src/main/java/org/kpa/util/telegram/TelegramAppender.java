@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Paolo Denti
@@ -157,6 +158,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         executor.submit(() -> implSendTelegramMessage(eventObject));
     }
 
+    private final AtomicBoolean backgroundActed = new AtomicBoolean();
     private void implSendTelegramMessage(E eventObject) {
         if (eventObject != null) {
             String messageToSend = layout.doLayout(eventObject);
@@ -167,14 +169,20 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
             sentCounter.runIfCan(() -> {
                 compressor.clear();
                 bot.broadcast(str, false);
-            }, () -> new Thread(() -> {
-                try {
-                    Thread.sleep(minInterval + 100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+            }, () -> {
+                if (backgroundActed.compareAndSet(false, true)) {
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(minInterval + 100);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        if (backgroundActed.compareAndSet(true, false)) {
+                            executor.submit(() -> implSendTelegramMessage(null));
+                        }
+                    }).start();
                 }
-                executor.submit(() -> implSendTelegramMessage(null));
-            }).start());
+            });
         }
     }
 
