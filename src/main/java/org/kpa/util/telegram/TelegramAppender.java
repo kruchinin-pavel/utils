@@ -127,7 +127,10 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
 
         try {
             bot = TelegramBot.get(botUserName, botToken, chatSessionsFile, botInstanceName);
-            bot.cmd("l", (chatInfo, message) -> bot.send(chatInfo, compressor.getLastMessage(), false));
+            bot.cmd("l", (chatInfo, message) -> {
+                String str = compressor.getLastMessage();
+                if (!Strings.isNullOrEmpty(str)) bot.send(chatInfo, compressor.getLastMessage(), false);
+            });
         } catch (Exception e) {
             internalAddStatus(e.getMessage());
             errors++;
