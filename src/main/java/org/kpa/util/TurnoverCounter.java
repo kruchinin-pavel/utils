@@ -26,13 +26,19 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public void runIfCan(Runnable runnable, Runnable otherwise) {
-        if (canAddValue(1.)) {
+        boolean canAddValue = false;
+        synchronized (this) {
             try {
-                addValue(1.);
-                runnable.run();
+                if (canAddValue(1.0)) {
+                    addValue(1.);
+                    canAddValue = true;
+                }
             } catch (ValidationException e) {
                 throw new RuntimeException(e);
             }
+        }
+        if (canAddValue) {
+            runnable.run();
         } else if (otherwise != null) {
             otherwise.run();
         }
@@ -52,18 +58,22 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public void addValue(double value) throws ValidationException {
-        Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
-        this._lastValue = getLastVal() + value;
-        _lastTsNanos = dateSource.nanos();
-        if (getLastVal() > _maxValue) {
-            throw new ValidationException("Max turnover " + _maxValue + " reached on " +
-                    _rangeNanos + " nanos. Value " + value);
+        synchronized (this) {
+            Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
+            this._lastValue = getLastVal() + value;
+            _lastTsNanos = dateSource.nanos();
+            if (getLastVal() > _maxValue) {
+                throw new ValidationException("Max turnover " + _maxValue + " reached on " +
+                        _rangeNanos + " nanos. Value " + value);
+            }
         }
     }
 
     public boolean canAddValue(double value) {
-        Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
-        return getLastVal() + value <= _maxValue;
+        synchronized (this) {
+            Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
+            return getLastVal() + value <= _maxValue;
+        }
     }
 
     @Override
