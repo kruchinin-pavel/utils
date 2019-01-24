@@ -17,16 +17,22 @@ import java.util.function.Consumer;
 public class DaemonNamedFactory implements ThreadFactory {
     private static final Logger log = LoggerFactory.getLogger(DaemonNamedFactory.class);
     private String name;
+    private final boolean isDaemon;
     private AtomicInteger cnt = new AtomicInteger();
 
     public DaemonNamedFactory(String name) {
+        this(name, true);
+    }
+
+    public DaemonNamedFactory(String name, boolean isDaemon) {
         this.name = name;
+        this.isDaemon = isDaemon;
     }
 
     @Override
     public Thread newThread(Runnable r) {
         Thread thread = new Thread(r);
-        thread.setDaemon(true);
+        thread.setDaemon(isDaemon);
         thread.setName(name + "-" + cnt.incrementAndGet());
         return thread;
     }
@@ -41,6 +47,10 @@ public class DaemonNamedFactory implements ThreadFactory {
 
     public static ExecutorService newCachedThreadPool(String name) {
         return Executors.newCachedThreadPool(new DaemonNamedFactory(name));
+    }
+
+    public static ExecutorService newCachedThreadPool(String name, boolean isDaemon) {
+        return Executors.newCachedThreadPool(new DaemonNamedFactory(name, isDaemon));
     }
 
     public static void schedule(Runnable processor, String name, long delay_millis) {
