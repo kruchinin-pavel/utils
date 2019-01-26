@@ -5,6 +5,7 @@ import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.status.ErrorStatus;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import org.kpa.util.DaemonNamedFactory;
 import org.kpa.util.TurnoverCounter;
 
 import java.util.List;
@@ -23,7 +24,8 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
     private final OutputCompressor compressor = new OutputCompressor(200);
     private TelegramBot bot;
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
-            5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024));
+            5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024),
+            new DaemonNamedFactory("tgm", false));
 
 
     /**
