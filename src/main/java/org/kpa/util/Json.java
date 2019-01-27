@@ -12,9 +12,7 @@ import org.apache.commons.io.input.BOMInputStream;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -84,13 +82,14 @@ public class Json {
         }
     }
 
-    public static void toFile(String fileName, Collection<?> list) {
-        toFile(fileName, list.stream());
+    public static void toFile(String fileName, Collection<?> list, OpenOption... options) {
+        toFile(fileName, list.stream(), options);
     }
-    public static void toFile(String fileName, Stream<?> stream) {
+
+    public static void toFile(String fileName, Stream<?> stream, OpenOption... options) {
         try {
             Files.write(Paths.get(fileName),
-                    stream.map(Json::writeObject).collect(Collectors.toList()));
+                    stream.map(Json::writeObject).collect(Collectors.toList()), options);
         } catch (IOException e1) {
             throw new RuntimeException(e1);
         }
