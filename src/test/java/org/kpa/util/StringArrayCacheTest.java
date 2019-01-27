@@ -15,6 +15,7 @@ import static org.junit.Assert.*;
 public class StringArrayCacheTest {
     public static final int COUNT = 10000;
     public static final int CACHE_CAPACITY = 80;
+    public static final int MAX_COUNT = 30;
     public static final int CACHE_STEP = 10;
     private StringArrayCache cache;
     private List<String[]> expected;
@@ -36,14 +37,14 @@ public class StringArrayCacheTest {
     public void doSublistTest() {
         assertTrue(cache.getLastStartIndex() > COUNT - 100);
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(10, COUNT), cache.subList(10));
+        compare(expected.subList(10, 10 + MAX_COUNT), cache.subList(10, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(900, COUNT), cache.subList(900));
+        compare(expected.subList(900, 900 + MAX_COUNT), cache.subList(900, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(COUNT - 500, COUNT), cache.subList(COUNT - 500));
+        compare(expected.subList(COUNT - 500, COUNT - 500 + MAX_COUNT), cache.subList(COUNT - 500, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(40, COUNT), cache.subList(40));
-        compare(expected.subList(COUNT - 30, COUNT), cache.subList(COUNT - 30));
+        compare(expected.subList(40, 40 + MAX_COUNT), cache.subList(40, MAX_COUNT));
+        compare(expected.subList(COUNT - 30, COUNT), cache.subList(COUNT - 30, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
         assertTrue(cache.getLastStartIndex() <= COUNT - 30);
     }

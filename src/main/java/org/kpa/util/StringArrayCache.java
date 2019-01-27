@@ -81,7 +81,7 @@ public class StringArrayCache implements StringArray {
             }
             log.info("Cache miss. Reload from index: {}. This={}", startIndex, this);
             lastStartIndex = startIndex;
-            lastSubList = stringArrayStore.subList(startIndex);
+            lastSubList = stringArrayStore.subList(startIndex, size());
         }
     }
 
@@ -94,22 +94,23 @@ public class StringArrayCache implements StringArray {
     }
 
     @Override
-    public List<String[]> subList(int startIndex) {
+    public List<String[]> subList(int startIndex, int maxCount) {
         synchronized (this) {
             if (size() - startIndex > cacheCapacity) {
                 log.info("Request is more then cache capacity({}). Direct request from file at  {} to {}. This={}",
                         size() - startIndex, startIndex, size(), this);
-                return stringArrayStore.subList(startIndex);
+                return stringArrayStore.subList(startIndex, maxCount);
             }
             reloadCache(startIndex);
             return Collections.unmodifiableList(
-                    lastSubList.subList(startIndex - lastStartIndex, lastSubList.size()));
+                    lastSubList.subList(startIndex - lastStartIndex,
+                            Math.min(lastSubList.size(), startIndex - lastStartIndex + maxCount)));
         }
     }
 
     @Override
     public List<String[]> get() {
-        return subList(0);
+        return subList(0, 1);
     }
 
     @Override

@@ -30,7 +30,7 @@ public class StringArrayStoreTest {
     }
 
     @Test
-    public void doTest() throws InterruptedException {
+    public void doTest() {
         List<String[]> returned = cache.get();
         for (int i = 0; i < 1000; i++) {
             assertArrayEquals(expected.get(i), returned.get(i));
@@ -38,16 +38,16 @@ public class StringArrayStoreTest {
     }
 
     @Test
-    public void doSublistTest() throws InterruptedException {
+    public void doSublistTest() {
         expected = expected.subList(50, expected.size());
-        List<String[]> returned = cache.subList(50);
+        List<String[]> returned = cache.subList(50, expected.size());
         for (int i = 50; i < Math.max(expected.size(), returned.size()); i++) {
             assertArrayEquals(expected.get(i), returned.get(i));
         }
     }
 
     @Test
-    public void doGetTest() throws InterruptedException {
+    public void doGetTest() {
         assertArrayEquals(expected.get(0), cache.get(0));
         assertArrayEquals(expected.get(1), cache.get(1));
         assertArrayEquals(expected.get(50), cache.get(50));

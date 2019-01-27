@@ -92,7 +92,7 @@ public class StringArrayStore implements StringArray {
     }
 
     @Override
-    public List<String[]> subList(int startIndex) {
+    public List<String[]> subList(int startIndex, int maxCount) {
         logger.info("Getting from cache sublist from index {}: {}", startIndex, this);
         try {
             awaitCompletion();
@@ -107,14 +107,21 @@ public class StringArrayStore implements StringArray {
             if (index++ >= startIndex) {
                 ret.add(data);
             }
+            if (index >= startIndex + maxCount) {
+                break;
+            }
         }
         return ret;
     }
 
     @Override
-    public List<String[]> get() throws InterruptedException {
+    public List<String[]> get() {
         logger.info("Getting from cache: {}", this);
-        awaitCompletion();
+        try {
+            awaitCompletion();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         return Utils.stream(Json.iterableFile(file.getAbsolutePath(), StringArray.class)).map(v -> v.data).collect(Collectors.toList());
     }
 

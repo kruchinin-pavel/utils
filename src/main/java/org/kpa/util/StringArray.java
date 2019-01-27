@@ -11,9 +11,9 @@ public interface StringArray extends AutoCloseable {
 
     String[] get(int index);
 
-    List<String[]> subList(int startIndex);
+    List<String[]> subList(int startIndex, int maxCount);
 
-    List<String[]> get() throws InterruptedException;
+    List<String[]> get();
 
     int size();
 
