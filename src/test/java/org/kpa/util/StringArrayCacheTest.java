@@ -25,7 +25,9 @@ public class StringArrayCacheTest {
     public void prepare() {
         expected = new ArrayList<>();
         for (int i = 0; i < COUNT; i++) {
-            expected.add(new String[]{"" + ThreadLocalRandom.current().nextLong(),
+            expected.add(new String[]{
+                    "" + i,
+                    "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
         }
@@ -47,6 +49,16 @@ public class StringArrayCacheTest {
         compare(expected.subList(COUNT - 30, COUNT), cache.subList(COUNT - 30, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
         assertTrue(cache.getLastStartIndex() <= COUNT - 30);
+    }
+
+    @Test
+    public void doSublist2Test() {
+        cache.clearCache();
+        assertEquals(20, cache.subList(COUNT - 20, COUNT).size());
+        cache.add(new String[]{"asd", "asd"});
+        assertEquals(21, cache.subList(COUNT - 20, 300).size());
+        assertEquals(MAX_COUNT, cache.subList(COUNT - 2 * CACHE_CAPACITY, MAX_COUNT).size());
+        assertEquals(COUNT, cache.subList(0, COUNT).size());
     }
 
     private static void compare(List<String[]> expected, List<String[]> returned) {

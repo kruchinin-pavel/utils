@@ -52,7 +52,7 @@ public class StringArrayCache implements StringArray {
     private void evict() {
         synchronized (this) {
             int delta = lastSubList.size() - cacheCapacity;
-            if (delta > step) {
+            if (delta >= step) {
                 lastSubList.subList(0, delta).clear();
                 lastStartIndex += delta;
                 log.debug("Evicting cache to new index {}", lastStartIndex);
@@ -102,9 +102,16 @@ public class StringArrayCache implements StringArray {
                 return stringArrayStore.subList(startIndex, maxCount);
             }
             reloadCache(startIndex);
+            int startIncl = startIndex - lastStartIndex;
+            int endExcl = Math.min(lastSubList.size(), startIncl + maxCount);
+            if (startIncl >= endExcl) {
+                throw new IllegalStateException(
+                        String.format("Wrong state gor cache: %s. startIncl=%s, endExcl=%s, " +
+                                        "lastSubList.size=%s, lastStartIndex=%s, startIndex=%s, maxCount=%s",
+                                this, startIncl, endExcl, lastSubList.size(), lastStartIndex, startIndex, maxCount));
+            }
             return Collections.unmodifiableList(
-                    lastSubList.subList(startIndex - lastStartIndex,
-                            Math.min(lastSubList.size(), startIndex - lastStartIndex + maxCount)));
+                    lastSubList.subList(startIncl, endExcl));
         }
     }
 
@@ -115,7 +122,9 @@ public class StringArrayCache implements StringArray {
 
     @Override
     public int size() {
-        return stringArrayStore.size();
+        synchronized (this) {
+            return stringArrayStore.size();
+        }
     }
 
     @Override
