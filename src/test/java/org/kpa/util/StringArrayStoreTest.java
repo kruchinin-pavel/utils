@@ -10,16 +10,18 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 public class StringArrayStoreTest {
 
+    public static final int COUNT = 1000;
     private List<String[]> expected;
     private StringArrayStore cache;
 
     @Before
     public void prepare() throws IOException, InterruptedException {
         expected = new ArrayList<>();
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < COUNT; i++) {
             expected.add(new String[]{"" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
@@ -51,6 +53,18 @@ public class StringArrayStoreTest {
         assertArrayEquals(expected.get(0), cache.get(0));
         assertArrayEquals(expected.get(1), cache.get(1));
         assertArrayEquals(expected.get(50), cache.get(50));
+    }
+
+    @Test
+    public void testClear() {
+        assertEquals(COUNT, cache.size());
+        cache.clear();
+        assertEquals(0, cache.size());
+        String[] exp = {"test1", "test1"};
+        cache.add(exp);
+        List<String[]> res = cache.get();
+        assertEquals(1, res.size());
+        assertArrayEquals(exp, res.get(0));
     }
 
     @After

@@ -17,6 +17,8 @@ public interface StringArray extends AutoCloseable {
 
     int size();
 
+    void clear();
+
     @Override
     void close();
 }

@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class StringArrayStore implements StringArray {
-    private final File file;
+    private File file;
     public final String id;
     private static final Logger logger = LoggerFactory.getLogger(StringArrayStore.class);
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
@@ -134,6 +134,19 @@ public class StringArrayStore implements StringArray {
     protected void finalize() throws Throwable {
         close();
         super.finalize();
+    }
+
+    @Override
+    public void clear() {
+        synchronized (this) {
+            try {
+                Files.deleteIfExists(Paths.get(file.toString()));
+                size.set(0);
+                file = File.createTempFile("string_cache", id);
+            } catch (IOException e) {
+                logger.warn("Temp file deletion failed on buffer clear: {}", e.getMessage(), e);
+            }
+        }
     }
 
     @Override

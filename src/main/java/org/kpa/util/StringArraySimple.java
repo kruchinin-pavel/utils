@@ -42,6 +42,11 @@ public class StringArraySimple implements StringArray {
     }
 
     @Override
+    public void clear() {
+        list.clear();
+    }
+
+    @Override
     public void close() {
 
     }

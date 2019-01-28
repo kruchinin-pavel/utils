@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -65,6 +66,17 @@ public class StringArrayCacheTest {
         for (int i = 50; i < Math.max(expected.size(), returned.size()); i++) {
             assertArrayEquals(expected.get(i), returned.get(i));
         }
+    }
+
+    @Test
+    public void testClear() {
+        assertEquals(COUNT, cache.size());
+        cache.clear();
+        assertEquals(0, cache.size());
+        List<String[]> exp = Collections.singletonList(new String[]{"test1", "test1"});
+        cache.add(exp.get(0));
+        compare(exp, cache.get());
+        assertEquals(1, cache.size());
     }
 
 

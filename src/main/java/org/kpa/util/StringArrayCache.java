@@ -35,7 +35,7 @@ public class StringArrayCache implements StringArray {
         synchronized (this) {
             log.info("Clearing cache: {}", this);
             lastStartIndex = -1;
-            lastSubList = null;
+            lastSubList = new LinkedList<>();
         }
     }
 
@@ -137,5 +137,14 @@ public class StringArrayCache implements StringArray {
         return "StringArrayCache{" +
                 "stringArrayStore=" + stringArrayStore +
                 '}';
+    }
+
+    @Override
+    public void clear() {
+        synchronized (this) {
+            lastSubList.clear();
+            lastStartIndex = 0;
+            stringArrayStore.clear();
+        }
     }
 }
