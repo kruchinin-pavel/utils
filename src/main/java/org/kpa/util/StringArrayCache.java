@@ -95,6 +95,10 @@ public class StringArrayCache implements StringArray {
 
     @Override
     public List<String[]> subList(int startIndex, int maxCount) {
+        if (startIndex >= size()) {
+            log.warn("Out of bounds requested(empty list returned): startIndex={}, this={}", startIndex, this);
+            return Collections.emptyList();
+        }
         synchronized (this) {
             if (size() - startIndex > cacheCapacity) {
                 log.info("Request is more then cache capacity({}). Direct request from file at  {} to {}. This={}",
@@ -106,7 +110,7 @@ public class StringArrayCache implements StringArray {
             int endExcl = Math.min(lastSubList.size(), startIncl + maxCount);
             if (startIncl >= endExcl) {
                 throw new IllegalStateException(
-                        String.format("Wrong state gor cache: %s. startIncl=%s, endExcl=%s, " +
+                        String.format("Wrong state for cache: %s. startIncl=%s, endExcl=%s, " +
                                         "lastSubList.size=%s, lastStartIndex=%s, startIndex=%s, maxCount=%s",
                                 this, startIncl, endExcl, lastSubList.size(), lastStartIndex, startIndex, maxCount));
             }

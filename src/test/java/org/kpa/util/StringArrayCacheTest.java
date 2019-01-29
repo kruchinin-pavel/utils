@@ -62,6 +62,11 @@ public class StringArrayCacheTest {
         assertEquals(COUNT, cache.subList(0, COUNT).size());
     }
 
+    @Test
+    public void doOutOfRangeTest() {
+        cache.subList(COUNT * 2, MAX_COUNT);
+    }
+
     private static void compare(List<String[]> expected, List<String[]> returned) {
         for (int i = 50; i < Math.max(expected.size(), returned.size()); i++) {
             assertArrayEquals(expected.get(i), returned.get(i));
