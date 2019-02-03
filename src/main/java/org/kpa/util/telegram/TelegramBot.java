@@ -88,6 +88,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     }
 
     public TelegramBot cmd(String command, BiConsumer<ChatInfo, Message> consumer) {
+        logger.info("Adding command {} to appender.", command);
         Preconditions.checkArgument(this.callback.put(command.toLowerCase().trim(), consumer) == null,
                 "Already contains command: %s", command);
         return this;

@@ -7,6 +7,8 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import org.kpa.util.DaemonNamedFactory;
 import org.kpa.util.TurnoverCounter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -21,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * The append log execution is slow; use it only for critical errors
  */
 public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
+    private static final Logger log = LoggerFactory.getLogger(TelegramAppender.class);
     private final OutputCompressor compressor = new OutputCompressor(200);
     private TelegramBot bot;
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
@@ -129,12 +132,19 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         }
 
         try {
+            log.info("Creating bot for appender");
             bot = TelegramBot.get(botUserName, botToken, chatSessionsFile, botInstanceName);
             bot.cmd("l", (chatInfo, message) -> {
                 String str = compressor.getLastMessage();
-                if (!Strings.isNullOrEmpty(str)) bot.send(chatInfo, compressor.getLastMessage(), false);
+                if (!Strings.isNullOrEmpty(str)) {
+                    if (str.length() > 200) {
+                        str = str.substring(0, 200) + "...";
+                    }
+                    bot.send(chatInfo, str, false);
+                }
             });
         } catch (Exception e) {
+            log.warn("Error creating bot: {}", e.getMessage(), e);
             internalAddStatus(e.getMessage());
             errors++;
         }
@@ -142,6 +152,8 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         sentCounter = new TurnoverCounter(minInterval, 1);
         if (errors == 0) {
             super.start();
+        } else {
+            log.warn("Telegram appender is not started: errors={}", errors);
         }
         Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
     }
