@@ -26,9 +26,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+
+import static org.kpa.util.Utils.localHostAndUserName;
 
 public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable {
     private final String token;
@@ -37,15 +40,16 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     private final String botInstanceName;
     private Map<String, BiConsumer<ChatInfo, Message>> secrectCallback = new LinkedHashMap<>();
     private Map<String, BiConsumer<ChatInfo, Message>> callback = new LinkedHashMap<>();
-    private final List<ChatInfo> chatSet = new ArrayList<>();
+    private final List<ChatInfo> chatSet = new CopyOnWriteArrayList<>();
     private final RunOnce doCLose = new RunOnce();
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
     private static final AtomicInteger botCounter = new AtomicInteger();
     private final int botId = botCounter.getAndIncrement();
     private static Map<String, TelegramBot> botByName = new HashMap<>();
+    public static final String TGM_PREFIX = "__TGM__";
 
     private TelegramBot(String botUserName, String token, String storePath, String botInstanceName) {
-        this.botInstanceName = botInstanceName;
+        this.botInstanceName = botInstanceName == null ? "" : botInstanceName;
         this.storePath = storePath;
         this.token = token;
         this.botUserName = botUserName;
@@ -83,12 +87,12 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             send(chat, "Chats are:\n" + Joiner.on("\n").join(chatSet), true);
         });
 
-        logger.info("Telegram bot {}:{} started.", botUserName, botId);
-        broadcast("I'm up!", false);
+        logger.info("{} Telegram bot {}:{} started.", TGM_PREFIX, botUserName, botId);
+        broadcast("I'm up (" + localHostAndUserName() + ")!", false);
     }
 
     public TelegramBot cmd(String command, BiConsumer<ChatInfo, Message> consumer) {
-        logger.info("Adding command {} to appender.", command);
+        logger.info("{} {} Adding command {} to appender.", TGM_PREFIX, botInstanceName, command);
         Preconditions.checkArgument(this.callback.put(command.toLowerCase().trim(), consumer) == null,
                 "Already contains command: %s", command);
         return this;
@@ -108,14 +112,14 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         if (Files.isRegularFile(Paths.get(storePath))) {
             chatSet.clear();
             chatSet.addAll(new HashSet<>(Utils.asList(Json.iterableFile(storePath, ChatInfo.class))));
-            logger.info("Restored states: {}", chatSet);
+            logger.info("{} {} Restored states: {}", TGM_PREFIX, botInstanceName, chatSet);
         } else {
             logger.info("No chats yet");
         }
     }
 
     private synchronized void storeState() {
-        logger.info("Stored states: {}", chatSet);
+        logger.info("{} {} Stored states: {}", TGM_PREFIX, botInstanceName, chatSet);
         if (chatSet.size() > 0) {
             Json.toFile(storePath, chatSet);
         } else {
@@ -143,9 +147,9 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
     @Override
     public void onUpdateReceived(Update e) {
         // Тут будет то, что выполняется при получении сообщения
-        logger.info("id:{} Update come: {}", botId, e);
+        logger.info("{} {} id:{} Update come: {}", TGM_PREFIX, botInstanceName, botId, e);
         if (e.getMessage() == null) {
-            logger.info("Empty message come: {}", e);
+            logger.info("{} {} Empty message come: {}", TGM_PREFIX, botInstanceName, e);
             return;
         }
         ChatInfo info = new ChatInfo(e.getMessage());
@@ -175,7 +179,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     public synchronized void send(ChatInfo msg, String text, boolean async) {
         SendMessage s = new SendMessage();
-        logger.info("{} Sending message to chatId: {}", botInstanceName, msg);
+        logger.info("{} {} Sending message to chatId: {}", TGM_PREFIX, botInstanceName, msg);
         s.setChatId(msg.chatId);
         if (!Strings.isNullOrEmpty(botInstanceName)) {
             text = botInstanceName + ": " + text;
@@ -186,7 +190,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
             sendApiMethodAsync(method, new SentCallback<Message>() {
                 @Override
                 public void onResult(BotApiMethod<Message> method, Message response) {
-                    logger.debug("Method successful: {}. Responce: {}", method, response);
+                    logger.debug("{} {} Method successful: {}. Responce: {}", TGM_PREFIX, botInstanceName, method, response);
                 }
 
                 @Override
@@ -196,19 +200,23 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
                 @Override
                 public void onException(BotApiMethod<Message> method, Exception exception) {
-                    logger.error("Error on method {}. Forgetting chat {}", method, msg, exception);
-                    synchronized (TelegramBot.this) {
-                        chatSet.remove(msg);
-                        storeState();
-                    }
+                    TelegramBot.this.onException(method, exception, msg);
                 }
             });
         } else {
             try {
                 sendApiMethod(method);
             } catch (TelegramApiException e) {
-                throw new RuntimeException(e);
+                TelegramBot.this.onException(method, e, msg);
             }
+        }
+    }
+
+    private void onException(BotApiMethod<Message> method, Exception exception, ChatInfo msg) {
+        logger.error("{} {} Error on method {}. Forgetting chat {}", TGM_PREFIX, botInstanceName, method, msg, exception);
+        synchronized (TelegramBot.this) {
+            chatSet.remove(msg);
+            storeState();
         }
     }
 
@@ -219,7 +227,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     @Override
     public void onClosing() {
-        broadcast("I'm off!", false);
+        broadcast("I'm off (" + localHostAndUserName() + ")!", false);
         super.onClosing();
     }
 

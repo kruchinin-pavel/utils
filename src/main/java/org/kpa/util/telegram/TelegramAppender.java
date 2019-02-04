@@ -16,6 +16,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.kpa.util.telegram.TelegramBot.TGM_PREFIX;
+
 /**
  * @author Paolo Denti
  * <p>
@@ -132,7 +134,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         }
 
         try {
-            log.info("Creating bot for appender");
+            log.info("{} Creating bot for appender", TGM_PREFIX);
             bot = TelegramBot.get(botUserName, botToken, chatSessionsFile, botInstanceName);
             bot.cmd("l", (chatInfo, message) -> {
                 String str = compressor.getLastMessage();
@@ -144,7 +146,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
                 }
             });
         } catch (Exception e) {
-            log.warn("Error creating bot: {}", e.getMessage(), e);
+            log.warn("{} Error creating bot: {}", TGM_PREFIX, e.getMessage(), e);
             internalAddStatus(e.getMessage());
             errors++;
         }
@@ -153,7 +155,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
         if (errors == 0) {
             super.start();
         } else {
-            log.warn("Telegram appender is not started: errors={}", errors);
+            log.warn("{} Telegram appender is not started: errors={}", TGM_PREFIX, errors);
         }
         Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
     }
