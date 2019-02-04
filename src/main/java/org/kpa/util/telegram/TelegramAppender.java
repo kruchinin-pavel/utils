@@ -7,6 +7,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import org.kpa.util.DaemonNamedFactory;
 import org.kpa.util.TurnoverCounter;
+import org.kpa.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,6 +146,8 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
                     bot.send(chatInfo, str, false);
                 }
             });
+            bot.cmd("w", (chatInfo, message) -> bot.send(chatInfo, "I run as: \n"
+                    + Utils.localHostAndUserName(), false));
         } catch (Exception e) {
             log.warn("{} Error creating bot: {}", TGM_PREFIX, e.getMessage(), e);
             internalAddStatus(e.getMessage());

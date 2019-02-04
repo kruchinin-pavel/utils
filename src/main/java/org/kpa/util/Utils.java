@@ -1,12 +1,12 @@
 package org.kpa.util;
 
 import com.google.common.base.Strings;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.supercsv.io.CsvMapReader;
 import org.supercsv.prefs.CsvPreference;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -23,8 +23,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import static org.kpa.util.InsecureConsumer.secure;
 
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
@@ -97,21 +95,25 @@ public class Utils {
 
 
     public static String localHostAndUserName() {
-        String s = fillUserAndHost("user=%s, host=%s") + (logger.isDebugEnabled() ? ", debug log" : "");
+        String s = fillUserAndHost("user=%s, host=%s, dir=%s") + (logger.isDebugEnabled() ? ", debug log" : "");
         logger.debug("Debug control message");
         return s;
     }
 
     public static String fillUserAndHost(String fmt) {
         String hostName;
+        String userDir = System.getProperty("user.dir");
         try {
+            String userHome = System.getProperty("user.home");
+            userDir = userDir.replace(userHome, "~" + File.separatorChar);
+            userDir = userDir.replace("" + File.separatorChar + File.separatorChar, "" + File.separatorChar);
             java.net.InetAddress localMachine = null;
             localMachine = java.net.InetAddress.getLocalHost();
             hostName = localMachine.getHostName();
         } catch (UnknownHostException e) {
             hostName = "unknown";
         }
-        return String.format(fmt, System.getProperty("user.name"), hostName);
+        return String.format(fmt, System.getProperty("user.name"), hostName, userDir);
     }
 
 

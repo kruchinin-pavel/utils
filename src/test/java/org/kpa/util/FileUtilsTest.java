@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
+import static org.kpa.util.Utils.localHostAndUserName;
+
 public class FileUtilsTest {
     @Test
     public void doTestTarGz() throws IOException {
@@ -16,6 +18,11 @@ public class FileUtilsTest {
         InputStream is = FileUtils.getInputStream(files.get(0));
         System.out.println(Joiner.on("\n").join(files));
 
+    }
+
+    @Test
+    public void doTestgLocalHost() {
+        System.out.println(localHostAndUserName());
     }
 
 }
