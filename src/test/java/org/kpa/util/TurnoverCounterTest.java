@@ -2,19 +2,21 @@ package org.kpa.util;
 
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.junit.Assert.*;
 
 public class TurnoverCounterTest {
 
     @Test
     public void testTurnover() throws ValidationException {
-        SimulatorDateSource ds = new SimulatorDateSource();
-        TurnoverCounter counter = new TurnoverCounter(10_000, 1).setDateSource(ds);
+        AtomicLong millis = new AtomicLong();
+        TurnoverCounter counter = new TurnoverCounter(10_000, 1).setMillis(millis::get);
         counter.addValue(1);
-        ds.addMillis(5_000);
+        millis.addAndGet(5_000);
         assertEquals(.5, counter.getLastVal(), .001);
         counter.addValue(.5);
-        ds.addMillis(10_000);
+        millis.addAndGet(10_000);
         assertEquals(.0, counter.getLastVal(), .001);
         counter.addValue(1);
     }

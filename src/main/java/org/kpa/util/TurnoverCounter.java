@@ -2,6 +2,8 @@ package org.kpa.util;
 
 import com.google.common.base.Preconditions;
 
+import java.util.function.Supplier;
+
 /**
  * Created with IntelliJ IDEA.
  * User: krucpav
@@ -10,14 +12,14 @@ import com.google.common.base.Preconditions;
  * To change this template use File | Settings | File Templates.
  */
 public class TurnoverCounter implements Cloneable {
-    private DateSource dateSource = SystemDateSource.getInstance();
+    private Supplier<Long> millis = System::currentTimeMillis;
     private final double _maxValue;
-    private final long _rangeNanos;
-    private long _lastTsNanos;
+    private final long _rangeMillis;
+    private long _lastTsMillis;
     private double _lastValue;
 
     public TurnoverCounter(long rangeMillis, double maxValue) {
-        _rangeNanos = DateSourceHelper.msToNs(rangeMillis);
+        _rangeMillis = rangeMillis;
         _maxValue = maxValue;
     }
 
@@ -45,7 +47,7 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public double getLastVal() {
-        double amortization = (double) Math.max(_rangeNanos - (dateSource.nanos() - _lastTsNanos), 0) / _rangeNanos;
+        double amortization = (double) Math.max(_rangeMillis - (millis.get() - _lastTsMillis), 0) / _rangeMillis;
         return _lastValue * amortization;
     }
 
@@ -61,10 +63,10 @@ public class TurnoverCounter implements Cloneable {
         synchronized (this) {
             Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
             this._lastValue = getLastVal() + value;
-            _lastTsNanos = dateSource.nanos();
+            _lastTsMillis = millis.get();
             if (getLastVal() > _maxValue) {
                 throw new ValidationException("Max turnover " + _maxValue + " reached on " +
-                        _rangeNanos + " nanos. Value " + value);
+                        _rangeMillis + " milis. Value " + value);
             }
         }
     }
@@ -79,10 +81,10 @@ public class TurnoverCounter implements Cloneable {
     @Override
     public String toString() {
         return "TurnoverCounter{" +
-                "dateSource=" + dateSource +
+                "dateSource=" + millis +
                 ", _maxValue=" + _maxValue +
-                ", _rangeNanos=" + _rangeNanos +
-                ", _lastTsNanos=" + _lastTsNanos +
+                ", _rangeMillis=" + _rangeMillis +
+                ", _lastTsMillis=" + _lastTsMillis +
                 ", _lastValue=" + _lastValue +
                 '}';
     }
@@ -98,10 +100,14 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public TurnoverCounter setDateSource(DateSource dateSource) {
-        if (dateSource == null) {
+        return setMillis(dateSource::millis);
+    }
+
+    public TurnoverCounter setMillis(Supplier<Long> millis) {
+        if (millis == null) {
             throw new NullPointerException("dateSource is null");
         }
-        this.dateSource = dateSource;
+        this.millis = millis;
         return this;
     }
 }
