@@ -43,6 +43,8 @@ dependencies {
     compile 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.3'
     compile fileTree(dir: 'lib', include: ['*.jar'])
     compile 'org.zeromq:jeromq:0.4.3'
+    compile group: 'org.javassist', name: 'javassist', version: '3.22.0-CR1'
+    compile group: 'org.reflections', name: 'reflections', version: '0.9.9-RC2'
 // TelegramBot dependencies
 //    compile 'org.telegram:telegrambots:4.1'
     compile 'org.apache.httpcomponents:httpclient:4.5.3'
