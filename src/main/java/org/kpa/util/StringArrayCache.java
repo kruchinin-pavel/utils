@@ -87,16 +87,14 @@ public class StringArrayCache implements StringArray {
 
     @Override
     public String[] get(int index) {
-        synchronized (this) {
-            reloadCache(index);
-            return lastSubList.get(index - lastStartIndex);
-        }
+        List<String[]> ret = subList(index, 1);
+        return ret.size() == 0 ? null : ret.get(0);
     }
 
     @Override
     public List<String[]> subList(int startIndex, int maxCount) {
         if (startIndex >= size()) {
-            log.warn("Out of bounds requested(empty list returned): startIndex={}, this={}", startIndex, this);
+            log.debug("Out of bounds requested(empty list returned): startIndex={}, this={}", startIndex, this);
             return Collections.emptyList();
         }
         synchronized (this) {

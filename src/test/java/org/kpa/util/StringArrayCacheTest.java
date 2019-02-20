@@ -63,6 +63,13 @@ public class StringArrayCacheTest {
     }
 
     @Test
+    public void doGetTest() {
+        int oldCacheSize = cache.getCachedSize();
+        cache.get(0);
+        assertEquals(oldCacheSize, cache.getCachedSize());
+    }
+
+    @Test
     public void doOutOfRangeTest() {
         cache.subList(COUNT * 2, MAX_COUNT);
     }
