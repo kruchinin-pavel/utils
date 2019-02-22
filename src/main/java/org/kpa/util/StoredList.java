@@ -7,100 +7,96 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
-public interface StoredArray<T> extends List<T>, AutoCloseable {
-
-    List<T> get();
+public abstract class StoredList<T> implements List<T>, AutoCloseable {
 
     @Override
-    void close();
+    public abstract void close();
 
     @Override
-    default boolean isEmpty() {
+    public boolean isEmpty() {
         return size()==0;
     }
 
     @Override
-    default boolean contains(Object o) {
+    public boolean contains(Object o) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @NotNull
     @Override
-    default Iterator<T> iterator() {
-        throw new UnsupportedOperationException("Not supported");
-    }
+    public abstract Iterator<T> iterator();
 
     @NotNull
     @Override
-    default Object[] toArray() {
+    public Object[] toArray() {
         throw new UnsupportedOperationException("Not suppoerted");
     }
 
     @NotNull
     @Override
-    default <T> T[] toArray(@NotNull T[] a) {
+    public <T> T[] toArray(@NotNull T[] a) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default boolean remove(Object o) {
+    public boolean remove(Object o) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default boolean containsAll(@NotNull Collection<?> c) {
+    public boolean containsAll(@NotNull Collection<?> c) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default boolean addAll(int index, @NotNull Collection<? extends T> c) {
+    public boolean addAll(int index, @NotNull Collection<? extends T> c) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default boolean removeAll(@NotNull Collection<?> c) {
+    public boolean removeAll(@NotNull Collection<?> c) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default boolean retainAll(@NotNull Collection<?> c) {
+    public boolean retainAll(@NotNull Collection<?> c) {
         return false;
     }
 
     @Override
-    default T set(int index, T element) {
+    public T set(int index, T element) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default void add(int index, T element) {
+    public void add(int index, T element) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default T remove(int index) {
+    public T remove(int index) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default int indexOf(Object o) {
+    public int indexOf(Object o) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @Override
-    default int lastIndexOf(Object o) {
-        throw new UnsupportedOperationException("Not supported");
-    }
-
-    @NotNull
-    @Override
-    default ListIterator<T> listIterator() {
+    public int lastIndexOf(Object o) {
         throw new UnsupportedOperationException("Not supported");
     }
 
     @NotNull
     @Override
-    default ListIterator<T> listIterator(int index) {
+    public ListIterator<T> listIterator() {
+        throw new UnsupportedOperationException("Not supported");
+    }
+
+    @NotNull
+    @Override
+    public ListIterator<T> listIterator(int index) {
         throw new UnsupportedOperationException("Not supported");
     }
 

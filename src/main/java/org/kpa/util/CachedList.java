@@ -1,34 +1,36 @@
 package org.kpa.util;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.base.Preconditions;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import java.nio.file.StandardOpenOption;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
-public class CachedList<T> implements StoredArray<T> {
+public class CachedList<T> extends StoredList<T> {
     private final int step;
     private int lastStartIndex = 0;
     private final int cacheCapacity;
-    private final StoredArray<T> stringArrayStore;
+    private final StoredList<T> stringArrayStore;
     private List<T> lastSubList = new LinkedList<>();
     private static final Logger log = LoggerFactory.getLogger(CachedList.class);
 
-    public CachedList(StoredArray<T> stringArrayStore, int cacheCapacity, int step) {
+    private CachedList(StoredList<T> stringArrayStore, int cacheCapacity, int step) {
         this.stringArrayStore = stringArrayStore;
         this.cacheCapacity = cacheCapacity;
         this.step = step;
     }
 
-    public int getCachedSize() {
+    int getCachedSize() {
         return lastSubList.size();
     }
 
-    public void clearCache() {
+    void clearCache() {
         synchronized (this) {
             log.info("Clearing cache: {}", this);
             lastStartIndex = -1;
@@ -57,7 +59,7 @@ public class CachedList<T> implements StoredArray<T> {
         }
     }
 
-    public int getLastStartIndex() {
+    int getLastStartIndex() {
         return lastStartIndex;
     }
 
@@ -71,7 +73,7 @@ public class CachedList<T> implements StoredArray<T> {
         return true;
     }
 
-    private void reloadCache(int startIndex) {
+    private void reloadCacheIfRequired(int startIndex) {
         synchronized (this) {
             if (lastStartIndex >= 0 && lastStartIndex <= startIndex) {
                 return;
@@ -89,34 +91,37 @@ public class CachedList<T> implements StoredArray<T> {
     }
 
     @Override
-    public List<T> subList(int startIndex, int maxCount) {
+    public List<T> subList(int startIndex, int toIndex) {
+        Preconditions.checkArgument(toIndex >= startIndex,
+                "Invalid toIndex: %s. Size: %s. startIndex=%s", toIndex, size(), startIndex);
         if (startIndex >= size()) {
             log.debug("Out of bounds requested(empty list returned): startIndex={}, this={}", startIndex, this);
             return Collections.emptyList();
         }
         synchronized (this) {
+            toIndex = Math.min(size(), toIndex);
             if (size() - startIndex > cacheCapacity) {
                 log.info("Request is more then cache capacity({}). Direct request from file at  {} to {}. This={}",
                         size() - startIndex, startIndex, size(), this);
-                return stringArrayStore.subList(startIndex, maxCount);
+                return stringArrayStore.subList(startIndex, toIndex);
             }
-            reloadCache(startIndex);
+            reloadCacheIfRequired(startIndex);
             int startIncl = startIndex - lastStartIndex;
-            int endExcl = Math.min(lastSubList.size(), startIncl + maxCount);
+            int endExcl = Math.min(lastSubList.size(), startIndex + toIndex - startIndex);
             if (startIncl >= endExcl) {
                 throw new IllegalStateException(
                         String.format("Wrong state for cache: %s. startIncl=%s, endExcl=%s, " +
-                                        "lastSubList.size=%s, lastStartIndex=%s, startIndex=%s, maxCount=%s",
-                                this, startIncl, endExcl, lastSubList.size(), lastStartIndex, startIndex, maxCount));
+                                        "lastSubList.size=%s, lastStartIndex=%s, startIndex=%s, toIndex=%s",
+                                this, startIncl, endExcl, lastSubList.size(), lastStartIndex, startIndex, toIndex));
             }
-            return Collections.unmodifiableList(
-                    lastSubList.subList(startIncl, endExcl));
+            return Collections.unmodifiableList(lastSubList.subList(startIncl, endExcl));
         }
     }
 
+    @NotNull
     @Override
-    public List<T> get() {
-        return subList(0, 1);
+    public Iterator<T> iterator() {
+        return subList(0, 1).iterator();
     }
 
     @Override
@@ -147,12 +152,42 @@ public class CachedList<T> implements StoredArray<T> {
         }
     }
 
-    public static CachedList<String[]> getStringArrayCache(String id, int cacheCapacity, int step) {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private static class StringArray {
+        public StringArray() {
+        }
+
+        public StringArray(String[] data) {
+            this.data = data;
+        }
+
+        public String[] data;
+    }
+
+
+    public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int step) {
         try {
-            return new CachedList<>(new StringArrayStore(id), cacheCapacity, step);
+            return new CachedList<>(new FileStoredList<>(id,
+                    (file, strings) -> Json.toFile(file, Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND),
+                    (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
+                    (file, startIndex) ->
+                            Utils.convert(Json.iterableFile(file, StringArray.class), sa -> sa.data, startIndex).iterator()), cacheCapacity, step);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
+    public static CachedList<String[]> createCached(String id, int cacheCapacity, int step,
+                                                    BiConsumer<String, String[]> addFunc,
+                                                    BiConsumer<String, Collection<? extends String[]>> addAllFunc,
+                                                    BiFunction<String, Integer, Iterator<String[]>> iteratorFunc) {
+        try {
+            return new CachedList<>(new FileStoredList(id, addFunc, addAllFunc, iteratorFunc), cacheCapacity, step);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
 
 }

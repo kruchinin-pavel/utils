@@ -159,19 +159,29 @@ public class Utils {
     }
 
     public static <T, R> Iterable<R> convert(Iterable<T> rcs, Function<T, R> converter) {
-        return () -> new Iterator<R>() {
-            Iterator<T> iterator = rcs.iterator();
+        return convert(rcs, converter, 0);
+    }
 
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
+    public static <T, R> Iterable<R> convert(Iterable<T> rcs, Function<T, R> converter, int startFrom) {
+        return () -> {
+            Iterator<T> iteratorR = rcs.iterator();
+            Iterator<R> iterator = new Iterator<R>() {
+                @Override
+                public boolean hasNext() {
+                    return iteratorR.hasNext();
+                }
+
+                @Override
+                public R next() {
+                    return converter.apply(iteratorR.next());
+                }
+            };
+            int index = 0;
+            while (index < startFrom && iteratorR.hasNext()) {
+                iteratorR.next();
+                index++;
             }
-
-            @Override
-            public R next() {
-                return converter.apply(iterator.next());
-            }
-
+            return iterator;
         };
     }
 

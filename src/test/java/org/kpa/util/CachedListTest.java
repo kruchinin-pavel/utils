@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -29,7 +30,7 @@ public class CachedListTest {
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
         }
-        cache = CachedList.getStringArrayCache("tmp", CACHE_CAPACITY, CACHE_STEP);
+        cache = CachedList.createCachedStringArray("tmp", CACHE_CAPACITY, CACHE_STEP);
         expected.forEach(cache::add);
     }
 
@@ -39,12 +40,12 @@ public class CachedListTest {
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
         compare(expected.subList(10, 10 + MAX_COUNT), cache.subList(10, MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(900, 900 + MAX_COUNT), cache.subList(900, MAX_COUNT));
+        compare(expected.subList(900, 900 + MAX_COUNT), cache.subList(900, 900 + MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(COUNT - 500, COUNT - 500 + MAX_COUNT), cache.subList(COUNT - 500, MAX_COUNT));
+        compare(expected.subList(COUNT - 500, COUNT - 500 + MAX_COUNT), cache.subList(COUNT - 500, COUNT - 500 + MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
-        compare(expected.subList(40, 40 + MAX_COUNT), cache.subList(40, MAX_COUNT));
-        compare(expected.subList(COUNT - 30, COUNT), cache.subList(COUNT - 30, MAX_COUNT));
+        compare(expected.subList(40, 40 + MAX_COUNT), cache.subList(40, 40 + MAX_COUNT));
+        compare(expected.subList(COUNT - 30, COUNT), cache.subList(COUNT - 30, COUNT - 30 + MAX_COUNT));
         assertTrue(cache.getCachedSize() <= CACHE_CAPACITY + CACHE_STEP);
         assertTrue(cache.getLastStartIndex() <= COUNT - 30);
     }
@@ -54,8 +55,8 @@ public class CachedListTest {
         cache.clearCache();
         assertEquals(20, cache.subList(COUNT - 20, COUNT).size());
         cache.add(new String[]{"asd", "asd"});
-        assertEquals(21, cache.subList(COUNT - 20, 300).size());
-        assertEquals(MAX_COUNT, cache.subList(COUNT - 2 * CACHE_CAPACITY, MAX_COUNT).size());
+        assertEquals(21, cache.subList(COUNT - 20, COUNT - 20 + 300).size());
+        assertEquals(MAX_COUNT, cache.subList(COUNT - 2 * CACHE_CAPACITY, COUNT - 2 * CACHE_CAPACITY + MAX_COUNT).size());
         assertEquals(COUNT, cache.subList(0, COUNT).size());
     }
 
@@ -68,7 +69,15 @@ public class CachedListTest {
 
     @Test
     public void doOutOfRangeTest() {
-        cache.subList(COUNT * 2, MAX_COUNT);
+        cache.subList(COUNT * 2, COUNT * 2 + MAX_COUNT);
+    }
+
+    private static void compare(Iterator<String[]> expectedIt, Iterator<String[]> returnedIt) {
+        List<String[]> expected = new ArrayList<>();
+        List<String[]> returned = new ArrayList<>();
+        while (expectedIt.hasNext()) expected.add(expectedIt.next());
+        while (returnedIt.hasNext()) returned.add(returnedIt.next());
+        compare(expected, returned);
     }
 
     private static void compare(List<String[]> expected, List<String[]> returned) {
@@ -84,7 +93,7 @@ public class CachedListTest {
         assertEquals(0, cache.size());
         List<String[]> exp = Collections.singletonList(new String[]{"test1", "test1"});
         cache.add(exp.get(0));
-        compare(exp, cache.get());
+        compare(exp.iterator(), cache.iterator());
         assertEquals(1, cache.size());
     }
 

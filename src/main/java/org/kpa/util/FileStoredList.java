@@ -1,6 +1,6 @@
 package org.kpa.util;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.base.Preconditions;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,59 +9,46 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
-public class StringArrayStore implements StoredArray<String[]> {
+public class FileStoredList<T> extends StoredList<T> {
     private File file;
     public final String id;
-    private static final Logger logger = LoggerFactory.getLogger(StringArrayStore.class);
+    private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
             5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024),
             new DaemonNamedFactory("str_cache", false));
     private final AtomicInteger size = new AtomicInteger();
+    private final BiConsumer<String, T> addFunc;
+    private final BiConsumer<String, Collection<? extends T>> addAllFunc;
+    private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private static class StringArray {
-        public StringArray() {
-        }
-
-        public StringArray(String[] data) {
-            this.data = data;
-        }
-
-        public String[] data;
-    }
-
-    private final Consumer<String[]> addFunc = strings ->
-            Json.toFile(file.getAbsolutePath(), Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND);
-
-    private final Consumer<Collection<? extends String[]>> addAllFunc = strings ->
-            Json.toFile(file.getAbsolutePath(), strings.stream().map(StringArray::new), StandardOpenOption.APPEND);
-
-    private final Supplier<Iterator<String[]>> iteratorFunc = () ->
-            Utils.convert(Json.iterableFile(file.getAbsolutePath(), StringArray.class), sa -> sa.data).iterator();
-
-
-
-    public StringArrayStore(String id) throws IOException {
+    public FileStoredList(String id,
+                          BiConsumer<String, T> addFunc,
+                          BiConsumer<String, Collection<? extends T>> addAllFunc,
+                          BiFunction<String, Integer, Iterator<T>> iteratorFunc) throws IOException {
         file = File.createTempFile("string_cache", id);
         this.id = id;
+        this.addFunc = addFunc;
+        this.addAllFunc = addAllFunc;
+        this.iteratorFunc = iteratorFunc;
         logger.info("New {} cache created: {}", id, file);
     }
 
     @Override
-    public boolean addAll(@NotNull Collection<? extends String[]> strings) {
+    public boolean addAll(@NotNull Collection<? extends T> strings) {
         synchronized (this) {
             if (strings.size() > 0) {
-                executor.submit(() -> addAllFunc.accept(strings));
+                executor.submit(() -> addAllFunc.accept(file.getAbsolutePath(), strings));
             }
             size.addAndGet(strings.size());
         }
@@ -69,9 +56,9 @@ public class StringArrayStore implements StoredArray<String[]> {
     }
 
     @Override
-    public boolean add(String[] strings) {
+    public boolean add(T strings) {
         size.incrementAndGet();
-        executor.submit(() -> addFunc.accept(strings));
+        executor.submit(() -> addFunc.accept(file.getAbsolutePath(), strings));
         return true;
     }
 
@@ -82,17 +69,17 @@ public class StringArrayStore implements StoredArray<String[]> {
     }
 
     @Override
-    public String[] get(int index) {
+    public T get(int index) {
         logger.info("Getting from cache by index {}: {}", index, this);
         try {
             awaitCompletion();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Iterator<String[]> iter = iteratorFunc.get();
+        Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
         int index_ = 0;
         while (iter.hasNext()) {
-            String[] next = iter.next();
+            T next = iter.next();
             if (index_++ == index) {
                 return next;
             }
@@ -101,37 +88,34 @@ public class StringArrayStore implements StoredArray<String[]> {
     }
 
     @Override
-    public List<String[]> subList(int startIndex, int maxCount) {
+    public List<T> subList(int startIndex, int toIndex) {
+        Preconditions.checkArgument(toIndex >= startIndex && toIndex <= size(),
+                "Invalid toIndex: %s. Size: %s. startIndex=%s", toIndex, size(), startIndex);
         logger.info("Getting from cache sublist from index {}: {}", startIndex, this);
         try {
             awaitCompletion();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Iterator<String[]> iter = iteratorFunc.get();
-        List<String[]> ret = new ArrayList<>();
+        Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
+        List<T> ret = new ArrayList<>();
         int index = 0;
-        while (iter.hasNext()) {
-            String[] data = iter.next();
-            if (index++ >= startIndex) {
-                ret.add(data);
-            }
-            if (index >= startIndex + maxCount) {
-                break;
-            }
+        while (iter.hasNext() && index++ < toIndex - startIndex) {
+            ret.add(iter.next());
         }
         return ret;
     }
 
+    @NotNull
     @Override
-    public List<String[]> get() {
-        logger.info("Getting from cache: {}", this);
+    public Iterator<T> iterator() {
+        logger.info("Getting iterator from file: {}", this);
         try {
             awaitCompletion();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        return Utils.stream(Json.iterableFile(file.getAbsolutePath(), StringArray.class)).map(v -> v.data).collect(Collectors.toList());
+        return iteratorFunc.apply(file.getAbsolutePath(), 0);
     }
 
     @Override
@@ -170,7 +154,7 @@ public class StringArrayStore implements StoredArray<String[]> {
 
     @Override
     public String toString() {
-        return "StringArrayStore{" +
+        return "FileStoredList{" +
                 "file=" + file +
                 ", id='" + id + '\'' +
                 ", size=" + size.get() +
