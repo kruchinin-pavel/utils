@@ -88,7 +88,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
         });
 
         logger.info("{} Telegram bot {}:{} started.", TGM_PREFIX, botUserName, botId);
-        broadcast("I'm up (" + localHostAndUserName() + ")!", false);
+        broadcast("UP: " + localHostAndUserName(), false);
     }
 
     public TelegramBot cmd(String command, BiConsumer<ChatInfo, Message> consumer) {
@@ -227,7 +227,7 @@ public class TelegramBot extends TelegramLongPollingBot implements AutoCloseable
 
     @Override
     public void onClosing() {
-        broadcast("I'm off (" + localHostAndUserName() + ")!", false);
+        broadcast("OFF:" + localHostAndUserName(), false);
         super.onClosing();
     }
 

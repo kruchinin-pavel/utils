@@ -96,7 +96,7 @@ public class Utils {
 
 
     public static String localHostAndUserName() {
-        String s = fillUserAndHost("user=%s, host=%s, dir=%s") + (logger.isDebugEnabled() ? ", debug log" : "");
+        String s = fillUserAndHost("%s@%s:%s") + (logger.isDebugEnabled() ? ", debug log" : "");
         logger.debug("Debug control message");
         return s;
     }

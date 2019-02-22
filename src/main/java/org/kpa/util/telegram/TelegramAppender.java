@@ -146,7 +146,7 @@ public class TelegramAppender<E> extends UnsynchronizedAppenderBase<E> {
                     bot.send(chatInfo, str, false);
                 }
             });
-            bot.cmd("w", (chatInfo, message) -> bot.send(chatInfo, "I run as: \n"
+            bot.cmd("w", (chatInfo, message) -> bot.send(chatInfo, "ME: "
                     + Utils.localHostAndUserName(), false));
         } catch (Exception e) {
             log.warn("{} Error creating bot: {}", TGM_PREFIX, e.getMessage(), e);
