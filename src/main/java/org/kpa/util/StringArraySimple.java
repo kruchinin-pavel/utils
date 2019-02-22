@@ -1,23 +1,23 @@
 package org.kpa.util;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-public class StringArraySimple implements StringArray {
+public class StringArraySimple implements StoredArray<String[]> {
     private List<String[]> list = new LinkedList<>();
 
     @Override
-    public StringArray add(Collection<String[]> strings) {
-        list.addAll(strings);
-        return this;
+    public boolean addAll(@NotNull Collection<? extends String[]> strings) {
+        return list.addAll(strings);
     }
 
     @Override
-    public StringArray add(String[] strings) {
-        list.add(strings);
-        return this;
+    public boolean add(String[] strings) {
+        return list.add(strings);
     }
 
     @Override

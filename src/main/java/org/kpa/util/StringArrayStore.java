@@ -1,6 +1,7 @@
 package org.kpa.util;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class StringArrayStore implements StringArray {
+public class StringArrayStore implements StoredArray<String[]> {
     private File file;
     public final String id;
     private static final Logger logger = LoggerFactory.getLogger(StringArrayStore.class);
@@ -44,7 +45,7 @@ public class StringArrayStore implements StringArray {
     }
 
     @Override
-    public StringArrayStore add(Collection<String[]> strings) {
+    public boolean addAll(@NotNull Collection<? extends String[]> strings) {
         synchronized (this) {
             if (strings.size() > 0) {
                 executor.submit(() -> {
@@ -52,18 +53,17 @@ public class StringArrayStore implements StringArray {
                 });
             }
             size.addAndGet(strings.size());
-
         }
-        return this;
+        return true;
     }
 
     @Override
-    public StringArrayStore add(String[] strings) {
+    public boolean add(String[] strings) {
         size.incrementAndGet();
         executor.submit(() -> {
             Json.toFile(file.getAbsolutePath(), Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND);
         });
-        return this;
+        return true;
     }
 
     public void awaitCompletion() throws InterruptedException {

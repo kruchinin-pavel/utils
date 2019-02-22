@@ -1,5 +1,6 @@
 package org.kpa.util;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,22 +10,18 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
-public class StringArrayCache implements StringArray {
+public class CachedList<T> implements StoredArray<T> {
     private final int step;
     private int lastStartIndex = 0;
     private final int cacheCapacity;
-    private final StringArrayStore stringArrayStore;
-    private List<String[]> lastSubList = new LinkedList<>();
-    private static final Logger log = LoggerFactory.getLogger(StringArrayCache.class);
+    private final StoredArray<T> stringArrayStore;
+    private List<T> lastSubList = new LinkedList<>();
+    private static final Logger log = LoggerFactory.getLogger(CachedList.class);
 
-    public StringArrayCache(String id, int cacheCapacity, int step) {
+    public CachedList(StoredArray<T> stringArrayStore, int cacheCapacity, int step) {
+        this.stringArrayStore = stringArrayStore;
         this.cacheCapacity = cacheCapacity;
         this.step = step;
-        try {
-            stringArrayStore = new StringArrayStore(id);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public int getCachedSize() {
@@ -40,13 +37,13 @@ public class StringArrayCache implements StringArray {
     }
 
     @Override
-    public StringArray add(Collection<String[]> strings) {
+    public boolean addAll(@NotNull Collection<? extends T> strings) {
         synchronized (this) {
-            stringArrayStore.add(strings);
+            stringArrayStore.addAll(strings);
             lastSubList.addAll(strings);
             evict();
         }
-        return this;
+        return true;
     }
 
     private void evict() {
@@ -65,13 +62,13 @@ public class StringArrayCache implements StringArray {
     }
 
     @Override
-    public StringArray add(String[] strings) {
+    public boolean add(T strings) {
         synchronized (this) {
             stringArrayStore.add(strings);
             lastSubList.add(strings);
             evict();
         }
-        return this;
+        return true;
     }
 
     private void reloadCache(int startIndex) {
@@ -86,13 +83,13 @@ public class StringArrayCache implements StringArray {
     }
 
     @Override
-    public String[] get(int index) {
-        List<String[]> ret = subList(index, 1);
+    public T get(int index) {
+        List<T> ret = subList(index, 1);
         return ret.size() == 0 ? null : ret.get(0);
     }
 
     @Override
-    public List<String[]> subList(int startIndex, int maxCount) {
+    public List<T> subList(int startIndex, int maxCount) {
         if (startIndex >= size()) {
             log.debug("Out of bounds requested(empty list returned): startIndex={}, this={}", startIndex, this);
             return Collections.emptyList();
@@ -118,7 +115,7 @@ public class StringArrayCache implements StringArray {
     }
 
     @Override
-    public List<String[]> get() {
+    public List<T> get() {
         return subList(0, 1);
     }
 
@@ -136,7 +133,7 @@ public class StringArrayCache implements StringArray {
 
     @Override
     public String toString() {
-        return "StringArrayCache{" +
+        return "CachedList{" +
                 "stringArrayStore=" + stringArrayStore +
                 '}';
     }
@@ -149,4 +146,13 @@ public class StringArrayCache implements StringArray {
             stringArrayStore.clear();
         }
     }
+
+    public static CachedList<String[]> getStringArrayCache(String id, int cacheCapacity, int step) {
+        try {
+            return new CachedList<>(new StringArrayStore(id), cacheCapacity, step);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

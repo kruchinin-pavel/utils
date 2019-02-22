@@ -3,8 +3,6 @@ package org.kpa.util;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,14 +11,13 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.*;
 
-public class StringArrayCacheTest {
+public class CachedListTest {
     public static final int COUNT = 10000;
     public static final int CACHE_CAPACITY = 80;
     public static final int MAX_COUNT = 30;
     public static final int CACHE_STEP = 10;
-    private StringArrayCache cache;
+    private CachedList<String[]> cache;
     private List<String[]> expected;
-    private static final Logger log = LoggerFactory.getLogger(StringArrayCacheTest.class);
 
     @Before
     public void prepare() {
@@ -32,7 +29,7 @@ public class StringArrayCacheTest {
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
         }
-        cache = new StringArrayCache("tmp", CACHE_CAPACITY, CACHE_STEP);
+        cache = CachedList.getStringArrayCache("tmp", CACHE_CAPACITY, CACHE_STEP);
         expected.forEach(cache::add);
     }
 
