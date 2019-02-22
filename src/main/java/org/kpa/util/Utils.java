@@ -112,10 +112,12 @@ public class Utils {
             localMachine = java.net.InetAddress.getLocalHost();
             hostName = localMachine.getHostName();
         } catch (UnknownHostException e) {
+            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage(), e);
             try {
                 hostName = Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
                         .collect(Collectors.joining(","));
             } catch (IOException e1) {
+                logger.warn("Can't get content of /etc/hostname. Hostname set unknown: {} ", e.getMessage(), e);
                 hostName = "unknown";
             }
         }
