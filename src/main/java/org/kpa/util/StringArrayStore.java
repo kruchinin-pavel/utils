@@ -15,6 +15,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class StringArrayStore implements StoredArray<String[]> {
@@ -38,6 +40,17 @@ public class StringArrayStore implements StoredArray<String[]> {
         public String[] data;
     }
 
+    private final Consumer<String[]> addFunc = strings ->
+            Json.toFile(file.getAbsolutePath(), Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND);
+
+    private final Consumer<Collection<? extends String[]>> addAllFunc = strings ->
+            Json.toFile(file.getAbsolutePath(), strings.stream().map(StringArray::new), StandardOpenOption.APPEND);
+
+    private final Supplier<Iterator<String[]>> iteratorFunc = () ->
+            Utils.convert(Json.iterableFile(file.getAbsolutePath(), StringArray.class), sa -> sa.data).iterator();
+
+
+
     public StringArrayStore(String id) throws IOException {
         file = File.createTempFile("string_cache", id);
         this.id = id;
@@ -48,9 +61,7 @@ public class StringArrayStore implements StoredArray<String[]> {
     public boolean addAll(@NotNull Collection<? extends String[]> strings) {
         synchronized (this) {
             if (strings.size() > 0) {
-                executor.submit(() -> {
-                    Json.toFile(file.getAbsolutePath(), strings, StandardOpenOption.APPEND);
-                });
+                executor.submit(() -> addAllFunc.accept(strings));
             }
             size.addAndGet(strings.size());
         }
@@ -60,9 +71,7 @@ public class StringArrayStore implements StoredArray<String[]> {
     @Override
     public boolean add(String[] strings) {
         size.incrementAndGet();
-        executor.submit(() -> {
-            Json.toFile(file.getAbsolutePath(), Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND);
-        });
+        executor.submit(() -> addFunc.accept(strings));
         return true;
     }
 
@@ -80,12 +89,12 @@ public class StringArrayStore implements StoredArray<String[]> {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Iterator<StringArray> iter = Json.iterableFile(file.getAbsolutePath(), StringArray.class).iterator();
+        Iterator<String[]> iter = iteratorFunc.get();
         int index_ = 0;
         while (iter.hasNext()) {
-            StringArray next = iter.next();
+            String[] next = iter.next();
             if (index_++ == index) {
-                return next.data;
+                return next;
             }
         }
         throw new IndexOutOfBoundsException("" + index + " > " + index_);
@@ -99,11 +108,11 @@ public class StringArrayStore implements StoredArray<String[]> {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Iterator<StringArray> iter = Json.iterableFile(file.getAbsolutePath(), StringArray.class).iterator();
+        Iterator<String[]> iter = iteratorFunc.get();
         List<String[]> ret = new ArrayList<>();
         int index = 0;
         while (iter.hasNext()) {
-            String[] data = iter.next().data;
+            String[] data = iter.next();
             if (index++ >= startIndex) {
                 ret.add(data);
             }
