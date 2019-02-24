@@ -6,7 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -16,12 +15,12 @@ public class CachedList<T> extends StoredList<T> {
     private final int step;
     private int lastStartIndex = 0;
     private final int cacheCapacity;
-    private final StoredList<T> stringArrayStore;
+    private final StoredList<T> store;
     private List<T> lastSubList = new LinkedList<>();
     private static final Logger log = LoggerFactory.getLogger(CachedList.class);
 
-    private CachedList(StoredList<T> stringArrayStore, int cacheCapacity, int step) {
-        this.stringArrayStore = stringArrayStore;
+    private CachedList(StoredList<T> store, int cacheCapacity, int step) {
+        this.store = store;
         this.cacheCapacity = cacheCapacity;
         this.step = step;
     }
@@ -41,7 +40,7 @@ public class CachedList<T> extends StoredList<T> {
     @Override
     public boolean addAll(@NotNull Collection<? extends T> strings) {
         synchronized (this) {
-            stringArrayStore.addAll(strings);
+            store.addAll(strings);
             lastSubList.addAll(strings);
             evict();
         }
@@ -66,7 +65,7 @@ public class CachedList<T> extends StoredList<T> {
     @Override
     public boolean add(T strings) {
         synchronized (this) {
-            stringArrayStore.add(strings);
+            store.add(strings);
             lastSubList.add(strings);
             evict();
         }
@@ -80,7 +79,7 @@ public class CachedList<T> extends StoredList<T> {
             }
             log.info("Cache miss. Reload from index: {}. This={}", startIndex, this);
             lastStartIndex = startIndex;
-            lastSubList = stringArrayStore.subList(startIndex, size());
+            lastSubList = store.subList(startIndex, size());
         }
     }
 
@@ -103,7 +102,7 @@ public class CachedList<T> extends StoredList<T> {
             if (size() - startIndex > cacheCapacity) {
                 log.info("Request is more then cache capacity({}). Direct request from file at  {} to {}. This={}",
                         size() - startIndex, startIndex, size(), this);
-                return stringArrayStore.subList(startIndex, toIndex);
+                return store.subList(startIndex, toIndex);
             }
             reloadCacheIfRequired(startIndex);
             int startIncl = startIndex - lastStartIndex;
@@ -121,34 +120,34 @@ public class CachedList<T> extends StoredList<T> {
     @NotNull
     @Override
     public Iterator<T> iterator() {
-        return subList(0, 1).iterator();
+        return store.iterator();
     }
 
     @Override
     public int size() {
         synchronized (this) {
-            return stringArrayStore.size();
+            return store.size();
         }
     }
 
     @Override
     public void close() {
-        stringArrayStore.close();
+        store.close();
     }
 
     @Override
     public String toString() {
         return "CachedList{" +
-                "stringArrayStore=" + stringArrayStore +
+                "store=" + store +
                 '}';
     }
 
     @Override
     public void clear() {
         synchronized (this) {
+            store.clear();
             lastSubList.clear();
             lastStartIndex = 0;
-            stringArrayStore.clear();
         }
     }
 
@@ -166,26 +165,16 @@ public class CachedList<T> extends StoredList<T> {
 
 
     public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int step) {
-        try {
-            return new CachedList<>(new FileStoredList<>(id,
-                    (file, strings) -> Json.toFile(file, Collections.singletonList(new StringArray(strings)), StandardOpenOption.APPEND),
-                    (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
-                    (file, startIndex) ->
-                            Utils.convert(Json.iterableFile(file, StringArray.class), sa -> sa.data, startIndex).iterator()), cacheCapacity, step);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return new CachedList<>(new FileStoredList<>(id,
+                (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
+                (file, startIndex) ->
+                        Utils.convert(Json.iterableFile(file, StringArray.class), sa -> sa.data, startIndex).iterator()), cacheCapacity, step);
     }
 
-    public static CachedList<String[]> createCached(String id, int cacheCapacity, int step,
-                                                    BiConsumer<String, String[]> addFunc,
-                                                    BiConsumer<String, Collection<? extends String[]>> addAllFunc,
-                                                    BiFunction<String, Integer, Iterator<String[]>> iteratorFunc) {
-        try {
-            return new CachedList<>(new FileStoredList(id, addFunc, addAllFunc, iteratorFunc), cacheCapacity, step);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public static <T> CachedList<T> createCached(String id, int cacheCapacity, int step,
+                                                           BiConsumer<String, Collection<? extends T>> addAllFunc,
+                                                           BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
+        return new CachedList<T>(new FileStoredList<>(id, addAllFunc, iteratorFunc), cacheCapacity, step);
     }
 
 

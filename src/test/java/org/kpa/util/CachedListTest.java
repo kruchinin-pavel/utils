@@ -87,7 +87,7 @@ public class CachedListTest {
     }
 
     @Test
-    public void testClear() {
+    public void testClear() throws InterruptedException {
         assertEquals(COUNT, cache.size());
         cache.clear();
         assertEquals(0, cache.size());

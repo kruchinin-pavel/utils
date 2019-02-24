@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
-import com.google.common.base.Strings;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
 
@@ -114,25 +113,31 @@ public class Json {
     }
 
     public static <R> Iterable<R> iterableFile(String fileName, Class<R> clazz, BiConsumer<R, FileRef> postProcess) {
-        return new JsonFile<>(fileName, clazz, postProcess);
+        return iterableFile(fileName, clazz, postProcess, 0);
+    }
+
+    public static <R> Iterable<R> iterableFile(String fileName, Class<R> clazz, BiConsumer<R, FileRef> postProcess, int startFrom) {
+        return new JsonFile<>(fileName, clazz, postProcess, startFrom);
     }
 
     private static class JsonFile<T> implements Iterable<T> {
         private final String fileName;
         private final Class<T> clazz;
         private BiConsumer<T, FileRef> postProcess = null;
+        private final int startFrom;
 
-        JsonFile(String fileName, Class<T> clazz, BiConsumer<T, FileRef> postProcess) {
+        JsonFile(String fileName, Class<T> clazz, BiConsumer<T, FileRef> postProcess, int startIndex) {
             this.fileName = fileName;
             this.clazz = clazz;
             this.postProcess = postProcess;
+            this.startFrom = startIndex;
         }
 
         @Override
         public Iterator<T> iterator() {
-            Path path = FileUtils.path(fileName);
-            BufferedReader reader = FileUtils.newBufferedReader(path);
-            AtomicLong lineCounter = new AtomicLong(-1);
+            final AtomicLong lineCounter = new AtomicLong();
+            final Iterator<String> stringIterator = Utils.stringIterator(fileName, startFrom, lineCounter);
+
             return new Iterator<T>() {
                 T next = null;
 
@@ -140,26 +145,21 @@ public class Json {
                 public boolean hasNext() {
                     String line;
                     try {
-                        while (next == null && (line = reader.readLine()) != null) {
-                            lineCounter.incrementAndGet();
-                            if (Strings.isNullOrEmpty(line.trim())) {
-                                continue;
-                            }
+                        while (next == null && (line = stringIterator.next()) != null) {
                             next = readObject(line, clazz);
-                            if (postProcess != null) postProcess.accept(next, new FileRef(path, lineCounter.get()));
+                            if (postProcess != null)
+                                postProcess.accept(next, new FileRef(Paths.get(fileName), lineCounter.get()));
                             break;
                         }
                     } catch (Exception e) {
-                        throw new RuntimeException("Error reading file: " + path + ":" + lineCounter.get() + " msg:" + e.getMessage(), e);
+                        throw new RuntimeException("Error reading file: " + fileName + ":" + lineCounter.get() + " msg:" + e.getMessage(), e);
                     }
                     return next != null;
                 }
 
                 @Override
                 public T next() {
-                    if (!hasNext()) {
-                        return null;
-                    }
+                    hasNext();
                     T obj = this.next;
                     this.next = null;
                     return obj;

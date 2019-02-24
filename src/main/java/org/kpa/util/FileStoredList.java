@@ -1,6 +1,7 @@
 package org.kpa.util;
 
 import com.google.common.base.Preconditions;
+import com.pscap.utils.transport.ThreadedWorker;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,13 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -24,48 +20,75 @@ public class FileStoredList<T> extends StoredList<T> {
     private File file;
     public final String id;
     private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
-    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(0, 1,
-            5, TimeUnit.SECONDS, new LinkedBlockingQueue<>(1_024 * 1_024),
-            new DaemonNamedFactory("str_cache", false));
+    private final ThreadedWorker<Runnable> executor = new ThreadedWorker<>(5_000, "str_cache",
+            Runnable::run).dontSendNull();
     private final AtomicInteger size = new AtomicInteger();
-    private final BiConsumer<String, T> addFunc;
     private final BiConsumer<String, Collection<? extends T>> addAllFunc;
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
 
     public FileStoredList(String id,
-                          BiConsumer<String, T> addFunc,
                           BiConsumer<String, Collection<? extends T>> addAllFunc,
-                          BiFunction<String, Integer, Iterator<T>> iteratorFunc) throws IOException {
-        file = File.createTempFile("string_cache", id);
+                          BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
         this.id = id;
-        this.addFunc = addFunc;
         this.addAllFunc = addAllFunc;
         this.iteratorFunc = iteratorFunc;
-        logger.info("New {} cache created: {}", id, file);
+        updateFileName();
     }
 
+    private void updateFileName() {
+        try {
+            File oldFile = this.file;
+            this.file = File.createTempFile("string_cache", id);
+            file.deleteOnExit();
+            modCount++;
+            logger.info("New {} cache created: {}. modCount={}", id, this.file, modCount);
+            if (oldFile != null) Files.deleteIfExists(Paths.get(oldFile.toString()));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<T> rowsToStore = new LinkedList<>();
+
     @Override
-    public boolean addAll(@NotNull Collection<? extends T> strings) {
+    public boolean addAll(@NotNull Collection<? extends T> values) {
+        if (values.size() == 0) return false;
         synchronized (this) {
-            if (strings.size() > 0) {
-                executor.submit(() -> addAllFunc.accept(file.getAbsolutePath(), strings));
-            }
-            size.addAndGet(strings.size());
+            rowsToStore.addAll(values);
+            final long _modCount = modCount;
+            final String fileName = file.getAbsolutePath();
+            executor.accept(() -> {
+                List<T> _rowsToStore = new LinkedList<>();
+                synchronized (FileStoredList.this) {
+                    if (rowsToStore.size() == 0) return;
+                    _rowsToStore.addAll(rowsToStore);
+                    rowsToStore.clear();
+                }
+                if (modCount > _modCount) return;
+                try {
+                    addAllFunc.accept(fileName, _rowsToStore);
+                } catch (Throwable e) {
+                    if (modCount == _modCount) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+            });
+            size.addAndGet(values.size());
         }
         return true;
     }
+
+
+    private volatile long modCount = 0;
 
     @Override
-    public boolean add(T strings) {
-        size.incrementAndGet();
-        executor.submit(() -> addFunc.accept(file.getAbsolutePath(), strings));
-        return true;
+    public boolean add(T val) {
+        return addAll(Collections.singleton(val));
     }
 
-    public void awaitCompletion() throws InterruptedException {
-        while (executor.getQueue().size() > 0) {
-            Thread.sleep(1000);
-        }
+    public void awaitCompletion() throws InterruptedException, TimeoutException {
+        executor.join();
     }
 
     @Override
@@ -73,10 +96,10 @@ public class FileStoredList<T> extends StoredList<T> {
         logger.info("Getting from cache by index {}: {}", index, this);
         try {
             awaitCompletion();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
-        Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
+        Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
         int index_ = 0;
         while (iter.hasNext()) {
             T next = iter.next();
@@ -94,7 +117,7 @@ public class FileStoredList<T> extends StoredList<T> {
         logger.info("Getting from cache sublist from index {}: {}", startIndex, this);
         try {
             awaitCompletion();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
         Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
@@ -112,7 +135,7 @@ public class FileStoredList<T> extends StoredList<T> {
         logger.info("Getting iterator from file: {}", this);
         try {
             awaitCompletion();
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
         return iteratorFunc.apply(file.getAbsolutePath(), 0);
@@ -132,23 +155,23 @@ public class FileStoredList<T> extends StoredList<T> {
     @Override
     public void clear() {
         synchronized (this) {
-            try {
-                Files.deleteIfExists(Paths.get(file.toString()));
-                size.set(0);
-                file = File.createTempFile("string_cache", id);
-            } catch (IOException e) {
-                logger.warn("Temp file deletion failed on buffer clear: {}", e.getMessage(), e);
-            }
+            updateFileName();
+            size.set(0);
         }
     }
 
     @Override
     public void close() {
         try {
+            awaitCompletion();
             Files.deleteIfExists(Paths.get(file.toString()));
             logger.info("Cache disposed: {}", this);
         } catch (IOException e) {
             logger.warn("Cache dispose error: {}", e.getMessage(), e);
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

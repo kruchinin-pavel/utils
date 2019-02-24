@@ -6,13 +6,11 @@ import org.slf4j.LoggerFactory;
 import org.supercsv.io.CsvMapReader;
 import org.supercsv.prefs.CsvPreference;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -203,6 +201,42 @@ public class Utils {
                 }
             });
         }
+    }
+
+    public static Iterator<String> stringIterator(String fileName, int startFrom, AtomicLong _lineCounter) {
+        Path path = FileUtils.path(fileName);
+        BufferedReader reader = FileUtils.newBufferedReader(path);
+        final AtomicLong lineCounter = _lineCounter == null ? new AtomicLong(startFrom - 1) : _lineCounter;
+        Iterator<String> iter = new Iterator<String>() {
+            private String string;
+
+            @Override
+            public boolean hasNext() {
+                while (string == null) {
+                    try {
+                        string = reader.readLine();
+                        lineCounter.incrementAndGet();
+                        if (string == null) break;
+                        if (Strings.isNullOrEmpty(string.trim())) string = null;
+                    } catch (IOException e) {
+                        throw new RuntimeException();
+                    }
+                }
+                return string != null;
+            }
+
+            @Override
+            public String next() {
+                hasNext();
+                String string = this.string;
+                this.string = null;
+                return string;
+            }
+        };
+        while (lineCounter.get() < startFrom && iter.hasNext()) {
+            iter.next();
+        }
+        return iter;
     }
 
 }

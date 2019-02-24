@@ -3,7 +3,6 @@ package org.kpa.util;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -21,10 +20,6 @@ public abstract class StoredList<T> implements List<T>, AutoCloseable {
     public boolean contains(Object o) {
         throw new UnsupportedOperationException("Not supported");
     }
-
-    @NotNull
-    @Override
-    public abstract Iterator<T> iterator();
 
     @NotNull
     @Override
