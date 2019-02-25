@@ -21,7 +21,7 @@ public class FileStoredList<T> extends StoredList<T> {
     public final String id;
     private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
     private final ThreadedWorker<Runnable> executor = new ThreadedWorker<>(5_000, "str_cache",
-            Runnable::run).dontSendNull();
+            Runnable::run).dontSendNull().blockingQueue();
     private final AtomicInteger size = new AtomicInteger();
     private final BiConsumer<String, Collection<? extends T>> addAllFunc;
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;

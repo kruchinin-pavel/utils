@@ -24,6 +24,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
     private final LinkedBlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(10);
     private final BlockingQueue<T> messagesQueue;
     private final String workerName;
+    private boolean blockinQueue;
 
     public ThreadedWorker(long keepAlive, String workerName, Consumer<T> consumer) {
         this(keepAlive, workerName, consumer, 1_024 * 1_024);
@@ -46,6 +47,11 @@ public class ThreadedWorker<T> implements Consumer<T> {
         return this;
     }
 
+    public ThreadedWorker<T> blockingQueue() {
+        blockinQueue = true;
+        return this;
+    }
+
     public ThreadedWorker<T> trackQueue() {
         if (logCounter == null) {
             logCounter = new TurnoverCounter(10_000, 10);
@@ -61,8 +67,16 @@ public class ThreadedWorker<T> implements Consumer<T> {
     public void accept(T row) {
         Preconditions.checkArgument(lastException.get() == null, "Got unprocessed " +
                 "exception in buffer: %s", lastException.get());
-        Preconditions.checkArgument(messagesQueue.offer(row), "Can't offer task to queue. " +
-                "This: %s", this);
+        if (!blockinQueue) {
+            Preconditions.checkArgument(messagesQueue.offer(row), "Can't offer task to queue. " +
+                    "This: %s", this);
+        } else {
+            try {
+                messagesQueue.put(row);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         if (logCounter != null && size() > 30) {
             logCounter.runIfCan(() -> log.warn("Slow {}", this));
         }
