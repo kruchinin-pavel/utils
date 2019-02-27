@@ -89,12 +89,12 @@ public class ThreadedWorker<T> implements Consumer<T> {
                         while ((data = messagesQueue.poll()) != null) {
                             try {
                                 consumer.accept(data);
+                                if (sendNull && msgsCounter.get() == 1) {
+                                    consumer.accept(null);
+                                }
                             } finally {
                                 msgsCounter.decrementAndGet();
                             }
-                        }
-                        if (sendNull && msgsCounter.get() == 0) {
-                            consumer.accept(null);
                         }
                     } catch (Throwable e) {
                         log.error("Exception caught within executor: {}", e);
