@@ -4,10 +4,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.*;
@@ -61,6 +58,15 @@ public class CachedListTest {
         assertEquals("" + stIndex, ret.get(0)[0]);
         assertEquals(MAX_COUNT, ret.size());
         assertEquals(COUNT, cache.subList(0, COUNT).size());
+    }
+
+    @Test
+    public void doListIterator() {
+        ListIterator<String[]> iter = cache.listIterator(0);
+        while (iter.hasNext()) {
+            String[] res = iter.next();
+            assertEquals(iter.previousIndex(), Integer.parseInt(res[0]));
+        }
     }
 
     @Test

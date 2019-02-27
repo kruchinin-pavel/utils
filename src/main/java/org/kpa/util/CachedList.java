@@ -85,7 +85,7 @@ public class CachedList<T> extends StoredList<T> {
 
     @Override
     public T get(int index) {
-        List<T> ret = subList(index, 1);
+        List<T> ret = subList(index, index + 1);
         return ret.size() == 0 ? null : ret.get(0);
     }
 
@@ -190,6 +190,10 @@ public class CachedList<T> extends StoredList<T> {
         return new CachedList<T>(new FileStoredList<>(id, queueCapacity, addAllFunc, iteratorFunc), cacheCapacity, step);
     }
 
-
+    @NotNull
+    @Override
+    public ListIterator<T> listIterator(int index) {
+        return store.listIterator(index);
+    }
 
 }

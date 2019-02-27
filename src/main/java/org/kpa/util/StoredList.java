@@ -86,7 +86,7 @@ public abstract class StoredList<T> implements List<T>, AutoCloseable {
     @NotNull
     @Override
     public ListIterator<T> listIterator() {
-        throw new UnsupportedOperationException("Not supported");
+        return listIterator(0);
     }
 
     @NotNull
