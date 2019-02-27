@@ -72,7 +72,10 @@ public class CachedListTest {
     @Test
     public void doGetTest() {
         int oldCacheSize = cache.getCachedSize();
-        cache.get(0);
+        for (int i = 0; i < 5; i++) {
+            String[] strings = cache.get(i);
+            assertEquals(i, Integer.parseInt(strings[0]));
+        }
         assertEquals(oldCacheSize, cache.getCachedSize());
     }
 

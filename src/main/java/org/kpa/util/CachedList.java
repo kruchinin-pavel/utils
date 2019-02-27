@@ -2,12 +2,17 @@ package org.kpa.util;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -18,6 +23,13 @@ public class CachedList<T> extends StoredList<T> {
     private final StoredList<T> store;
     private List<T> lastSubList = new LinkedList<>();
     private static final Logger log = LoggerFactory.getLogger(CachedList.class);
+    private final LoadingCache<Integer, T> lastQueriedItems = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, TimeUnit.HOURS).maximumSize(1000).weakValues().build(new CacheLoader<Integer, T>() {
+                @Override
+                public T load(@NotNull Integer key) {
+                    return store.get(key);
+                }
+            });
 
     private CachedList(StoredList<T> store, int cacheCapacity, int step) {
         this.store = store;
@@ -85,8 +97,11 @@ public class CachedList<T> extends StoredList<T> {
 
     @Override
     public T get(int index) {
-        List<T> ret = subList(index, index + 1);
-        return ret.size() == 0 ? null : ret.get(0);
+        try {
+            return lastQueriedItems.get(index);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -120,7 +135,7 @@ public class CachedList<T> extends StoredList<T> {
     @NotNull
     @Override
     public Iterator<T> iterator() {
-        return store.iterator();
+        return listIterator();
     }
 
     @Override
@@ -193,7 +208,55 @@ public class CachedList<T> extends StoredList<T> {
     @NotNull
     @Override
     public ListIterator<T> listIterator(int index) {
-        return store.listIterator(index);
+        ListIterator<T> iterator = store.listIterator(index);
+        return new ListIterator<T>() {
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public T next() {
+                T next = iterator.next();
+                lastQueriedItems.put(iterator.previousIndex(), next);
+                return next;
+            }
+
+            @Override
+            public boolean hasPrevious() {
+                return iterator.hasPrevious();
+            }
+
+            @Override
+            public T previous() {
+                return iterator.previous();
+            }
+
+            @Override
+            public int nextIndex() {
+                return iterator.nextIndex();
+            }
+
+            @Override
+            public int previousIndex() {
+                return iterator.previousIndex();
+            }
+
+            @Override
+            public void remove() {
+                iterator.remove();
+            }
+
+            @Override
+            public void set(T t) {
+                iterator.set(t);
+            }
+
+            @Override
+            public void add(T t) {
+                iterator.add(t);
+            }
+        };
     }
 
 }

@@ -107,14 +107,7 @@ public class FileStoredList<T> extends StoredList<T> {
             throw new RuntimeException(e);
         }
         Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
-        int index_ = 0;
-        while (iter.hasNext()) {
-            T next = iter.next();
-            if (index_++ == index) {
-                return next;
-            }
-        }
-        throw new IndexOutOfBoundsException("" + index + " > " + index_);
+        return iter.next();
     }
 
     @Override
