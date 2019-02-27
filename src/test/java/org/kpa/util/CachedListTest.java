@@ -30,7 +30,7 @@ public class CachedListTest {
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
         }
-        cache = CachedList.createCachedStringArray("tmp", CACHE_CAPACITY, CACHE_STEP);
+        cache = CachedList.createCachedStringArray("tmp", CACHE_CAPACITY, CACHE_CAPACITY, CACHE_STEP);
         expected.forEach(cache::add);
     }
 
@@ -56,7 +56,10 @@ public class CachedListTest {
         assertEquals(20, cache.subList(COUNT - 20, COUNT).size());
         cache.add(new String[]{"asd", "asd"});
         assertEquals(21, cache.subList(COUNT - 20, COUNT - 20 + 300).size());
-        assertEquals(MAX_COUNT, cache.subList(COUNT - 2 * CACHE_CAPACITY, COUNT - 2 * CACHE_CAPACITY + MAX_COUNT).size());
+        int stIndex = COUNT - 2 * CACHE_CAPACITY;
+        List<String[]> ret = cache.subList(stIndex, stIndex + MAX_COUNT);
+        assertEquals("" + stIndex, ret.get(0)[0]);
+        assertEquals(MAX_COUNT, ret.size());
         assertEquals(COUNT, cache.subList(0, COUNT).size());
     }
 

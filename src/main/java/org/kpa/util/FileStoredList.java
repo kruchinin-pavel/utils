@@ -20,19 +20,50 @@ public class FileStoredList<T> extends StoredList<T> {
     private File file;
     public final String id;
     private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
-    private final ThreadedWorker<Runnable> executor = new ThreadedWorker<>(5_000, "str_cache",
-            Runnable::run).dontSendNull().blockingQueue();
+    private final ThreadedWorker<ItemWrap<T>> executor;
     private final AtomicInteger size = new AtomicInteger();
     private final BiConsumer<String, Collection<? extends T>> addAllFunc;
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
 
-    public FileStoredList(String id,
+    public FileStoredList(String id, int queueCapacity,
                           BiConsumer<String, Collection<? extends T>> addAllFunc,
                           BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
         this.id = id;
         this.addAllFunc = addAllFunc;
         this.iteratorFunc = iteratorFunc;
         updateFileName();
+        executor = new ThreadedWorker<>(5_000, "str_cache",
+                this::process, queueCapacity).blockingQueue();
+    }
+
+    private static class ItemWrap<T> {
+        public final Collection<T> objects;
+        public final String fileName;
+
+        private ItemWrap(Collection<T> objects, String fileName) {
+            this.fileName = fileName;
+            this.objects = objects;
+        }
+    }
+
+    private ItemWrap<T> lastWrap = null;
+
+    private void process(ItemWrap<T> wrap) {
+        if (wrap != null) {
+            if (lastWrap != null && !lastWrap.fileName.equals(wrap.fileName)) lastWrap = null;
+            if (lastWrap == null) lastWrap = new ItemWrap<>(new ArrayList<>(), wrap.fileName);
+            lastWrap.objects.addAll(wrap.objects);
+            return;
+        }
+        try {
+            addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
+            lastWrap.objects.clear();
+        } catch (Throwable e) {
+            if (file.getAbsolutePath().equalsIgnoreCase(wrap.fileName)) {
+                throw new RuntimeException(e);
+            }
+        }
+
     }
 
     private void updateFileName() {
@@ -40,7 +71,6 @@ public class FileStoredList<T> extends StoredList<T> {
             File oldFile = this.file;
             this.file = File.createTempFile("string_cache", id);
             file.deleteOnExit();
-            modCount++;
             logger.info("New {} cache created: {}. modCount={}", id, this.file, modCount);
             if (oldFile != null) Files.deleteIfExists(Paths.get(oldFile.toString()));
         } catch (IOException e) {
@@ -48,39 +78,16 @@ public class FileStoredList<T> extends StoredList<T> {
         }
     }
 
-    private List<T> rowsToStore = new LinkedList<>();
-
     @Override
     public boolean addAll(@NotNull Collection<? extends T> values) {
         if (values.size() == 0) return false;
-        synchronized (this) {
-            rowsToStore.addAll(values);
-            final long _modCount = modCount;
-            final String fileName = file.getAbsolutePath();
-            executor.accept(() -> {
-                List<T> _rowsToStore = new LinkedList<>();
-                synchronized (FileStoredList.this) {
-                    if (rowsToStore.size() == 0) return;
-                    _rowsToStore.addAll(rowsToStore);
-                    rowsToStore.clear();
-                }
-                if (modCount > _modCount) return;
-                try {
-                    addAllFunc.accept(fileName, _rowsToStore);
-                } catch (Throwable e) {
-                    if (modCount == _modCount) {
-                        throw new RuntimeException(e);
-                    }
-                }
-
-            });
-            size.addAndGet(values.size());
-        }
+        size.addAndGet(values.size());
+        executor.accept(new ItemWrap<>((Collection<T>) values, file.getAbsolutePath()));
         return true;
     }
 
 
-    private volatile long modCount = 0;
+    private volatile int modCount = 0;
 
     @Override
     public boolean add(T val) {
@@ -122,8 +129,8 @@ public class FileStoredList<T> extends StoredList<T> {
         }
         Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
         List<T> ret = new ArrayList<>();
-        int index = 0;
-        while (iter.hasNext() && index++ < toIndex - startIndex) {
+        int index = startIndex;
+        while (iter.hasNext() && index++ < toIndex) {
             ret.add(iter.next());
         }
         return ret;

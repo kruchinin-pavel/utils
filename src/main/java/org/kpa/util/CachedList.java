@@ -72,14 +72,14 @@ public class CachedList<T> extends StoredList<T> {
         return true;
     }
 
-    private void reloadCacheIfRequired(int startIndex) {
+    private void reloadCacheIfRequired() {
         synchronized (this) {
-            if (lastStartIndex >= 0 && lastStartIndex <= startIndex) {
+            if (lastStartIndex >= 0 && lastStartIndex <= size() - cacheCapacity) {
                 return;
             }
-            log.info("Cache miss. Reload from index: {}. This={}", startIndex, this);
-            lastStartIndex = startIndex;
-            lastSubList = store.subList(startIndex, size());
+            lastStartIndex = size() - cacheCapacity;
+            log.info("Cache miss. Reload from index: {}. This={}", lastStartIndex, this);
+            lastSubList = store.subList(lastStartIndex, size());
         }
     }
 
@@ -104,9 +104,9 @@ public class CachedList<T> extends StoredList<T> {
                         size() - startIndex, startIndex, size(), this);
                 return store.subList(startIndex, toIndex);
             }
-            reloadCacheIfRequired(startIndex);
+            reloadCacheIfRequired();
             int startIncl = startIndex - lastStartIndex;
-            int endExcl = Math.min(lastSubList.size(), startIndex + toIndex - startIndex);
+            int endExcl = Math.min(lastSubList.size(), startIncl + toIndex - startIndex);
             if (startIncl >= endExcl) {
                 throw new IllegalStateException(
                         String.format("Wrong state for cache: %s. startIncl=%s, endExcl=%s, " +
@@ -164,17 +164,17 @@ public class CachedList<T> extends StoredList<T> {
     }
 
 
-    public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int step) {
-        return new CachedList<>(new FileStoredList<>(id,
+    public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int queueCapacity, int step) {
+        return new CachedList<>(new FileStoredList<>(id, queueCapacity,
                 (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
                 (file, startIndex) ->
-                        Utils.convert(Json.iterableFile(file, StringArray.class), sa -> sa.data, startIndex).iterator()), cacheCapacity, step);
+                        Utils.convert(Json.iterableFile(file, StringArray.class, null, startIndex), sa -> sa.data).iterator()), cacheCapacity, step);
     }
 
-    public static <T> CachedList<T> createCached(String id, int cacheCapacity, int step,
-                                                           BiConsumer<String, Collection<? extends T>> addAllFunc,
-                                                           BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
-        return new CachedList<T>(new FileStoredList<>(id, addAllFunc, iteratorFunc), cacheCapacity, step);
+    public static <T> CachedList<T> createCached(String id, int cacheCapacity, int queueCapacity, int step,
+                                                 BiConsumer<String, Collection<? extends T>> addAllFunc,
+                                                 BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
+        return new CachedList<T>(new FileStoredList<>(id, queueCapacity, addAllFunc, iteratorFunc), cacheCapacity, step);
     }
 
 
