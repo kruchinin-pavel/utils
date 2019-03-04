@@ -61,7 +61,7 @@ public class CachedList<T> extends StoredList<T> {
 
     private void evict() {
         synchronized (this) {
-            int delta = lastSubList.size() - cacheCapacity;
+            int delta = Math.max(lastSubList.size() - cacheCapacity, 0);
             if (delta >= step) {
                 lastSubList.subList(0, delta).clear();
                 lastStartIndex += delta;
@@ -89,7 +89,7 @@ public class CachedList<T> extends StoredList<T> {
             if (lastStartIndex >= 0 && lastStartIndex <= size() - cacheCapacity) {
                 return;
             }
-            lastStartIndex = size() - cacheCapacity;
+            lastStartIndex = Math.max(size() - cacheCapacity, 0);
             log.info("Cache miss. Reload from index: {}. This={}", lastStartIndex, this);
             lastSubList = store.subList(lastStartIndex, size());
         }

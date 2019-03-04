@@ -27,17 +27,46 @@ public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
 
     public static AutoCloseableIterator<Map<String, String>> readCsv(String fileName) {
+        return readCsv(fileName, CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE);
+    }
+
+    public static AutoCloseableIterator<Map<String, String>> readCsv(String fileName, CsvPreference pref) {
         try {
-            return readCsv(new InputStreamReader(Files.newInputStream(FileUtils.path(fileName))), Integer.MAX_VALUE);
+            return readCsv(new InputStreamReader(Files.newInputStream(FileUtils.path(fileName))), Integer.MAX_VALUE, pref);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    public static AutoCloseableIterator<Map<String, String>> readRomasCsv(String fileName) {
+        AutoCloseableIterator<String> iter = stringIterator(fileName, 0, new AtomicLong());
+        RomasCsv csv = new RomasCsv(iter.next());
+        return new AutoCloseableIterator<Map<String, String>>() {
+            @Override
+            public void close() {
+                iter.close();
+            }
+
+            @Override
+            public boolean hasNext() {
+                return iter.hasNext();
+            }
+
+            @Override
+            public Map<String, String> next() {
+                return csv.parse(iter.next());
+            }
+        };
+    }
+
     public static AutoCloseableIterator<Map<String, String>> readCsv(Reader reader, int maxRows) throws IOException {
+        return readCsv(reader, maxRows, CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE);
+    }
+
+    public static AutoCloseableIterator<Map<String, String>> readCsv(Reader reader, int maxRows, CsvPreference pref) throws IOException {
         return new AutoCloseableIterator<Map<String, String>>() {
             private final AtomicLong counter = new AtomicLong();
-            private final CsvMapReader csvMapReader = new CsvMapReader(reader, CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE);
+            private final CsvMapReader csvMapReader = new CsvMapReader(reader, pref);
             private final String[] header = csvMapReader.getHeader(true);
             private final AtomicBoolean closed = new AtomicBoolean();
             private Map<String, String> val;
@@ -203,12 +232,21 @@ public class Utils {
         }
     }
 
-    public static Iterator<String> stringIterator(String fileName, int startFrom, AtomicLong _lineCounter) {
+    public static AutoCloseableIterator<String> stringIterator(String fileName, int startFrom, AtomicLong _lineCounter) {
         Path path = FileUtils.path(fileName);
         BufferedReader reader = FileUtils.newBufferedReader(path);
         final AtomicLong lineCounter = _lineCounter == null ? new AtomicLong(startFrom - 1) : _lineCounter;
-        Iterator<String> iter = new Iterator<String>() {
+        AutoCloseableIterator<String> iter = new AutoCloseableIterator<String>() {
             private String string;
+
+            @Override
+            public void close() {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
 
             @Override
             public boolean hasNext() {
