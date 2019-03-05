@@ -13,7 +13,7 @@ public class RomasCsv {
     private final List<String> columnNames;
 
     public RomasCsv(String colNameStr) {
-        columnNames = Splitter.on(",").splitToList(colNameStr);
+        columnNames = Splitter.on(",").trimResults().splitToList(colNameStr);
     }
 
     public Map<String, String> parse(String _line) {
@@ -26,15 +26,15 @@ public class RomasCsv {
                 fromIndex = line.indexOf("}");
             } else {
                 values.add(line.substring(0, nextDelim));
-                line = line.substring(nextDelim + 1);
+                line = line.substring(nextDelim + 1).trim();
                 fromIndex = 0;
+                if (line.length() == 0) values.add("");
             }
         }
-        if (line.length() > 0) {
-            values.add(line);
-        }
+        if (line.length() > 0) values.add(line.trim());
+
         Preconditions.checkArgument(columnNames.size() == values.size(),
-                "Row and columns are not equal: columns=%s, row=%s", columnNames, values);
+                "Row and columns are not equal: columns=%s, rawString=%s", columnNames, _line);
         Map<String, String> row = new LinkedHashMap<>();
         for (int i = 0; i < columnNames.size(); i++) {
             row.put(columnNames.get(i), values.get(i));

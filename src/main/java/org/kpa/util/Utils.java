@@ -39,7 +39,8 @@ public class Utils {
     }
 
     public static AutoCloseableIterator<Map<String, String>> readRomasCsv(String fileName) {
-        AutoCloseableIterator<String> iter = stringIterator(fileName, 0, new AtomicLong());
+        AtomicLong lineCounter = new AtomicLong();
+        AutoCloseableIterator<String> iter = stringIterator(fileName, 0, lineCounter);
         RomasCsv csv = new RomasCsv(iter.next());
         return new AutoCloseableIterator<Map<String, String>>() {
             @Override
@@ -54,7 +55,12 @@ public class Utils {
 
             @Override
             public Map<String, String> next() {
-                return csv.parse(iter.next());
+                try {
+                    return csv.parse(iter.next());
+                } catch (Exception e) {
+                    throw new RuntimeException("Error parsing file: " + fileName + " at line "
+                            + lineCounter.get() + ": " + e.getMessage(), e);
+                }
             }
         };
     }
