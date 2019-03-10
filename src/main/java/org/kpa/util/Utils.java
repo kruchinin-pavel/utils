@@ -145,7 +145,7 @@ public class Utils {
             localMachine = java.net.InetAddress.getLocalHost();
             hostName = localMachine.getHostName();
         } catch (UnknownHostException e) {
-            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage(), e);
+            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage());
             try {
                 hostName = Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
                         .collect(Collectors.joining(","));

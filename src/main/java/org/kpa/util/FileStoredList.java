@@ -59,7 +59,7 @@ public class FileStoredList<T> extends StoredList<T> {
             addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
             lastWrap.objects.clear();
         } catch (Throwable e) {
-            if (file.getAbsolutePath().equalsIgnoreCase(wrap.fileName)) {
+            if (file==null || file.getAbsolutePath().equalsIgnoreCase(wrap.fileName)) {
                 throw new RuntimeException(e);
             }
         }
@@ -129,78 +129,20 @@ public class FileStoredList<T> extends StoredList<T> {
         return ret;
     }
 
-    @NotNull
-    @Override
-    public ListIterator<T> listIterator(int index) {
-        logger.info("Getting listIterator index={} from file: {}", index, this);
-        try {
-            awaitCompletion();
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
-
-        Iterator<T> val = iteratorFunc.apply(file.getAbsolutePath(), index);
-        AtomicInteger nextIndex = new AtomicInteger(index + 1);
-        return new ListIterator<T>() {
-            @Override
-            public boolean hasNext() {
-                return val.hasNext();
-            }
-
-            @Override
-            public T next() {
-                T next = val.next();
-                nextIndex.incrementAndGet();
-                return next;
-            }
-
-            @Override
-            public boolean hasPrevious() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public T previous() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public int nextIndex() {
-                return nextIndex.get();
-            }
-
-            @Override
-            public int previousIndex() {
-                return Math.max(nextIndex.get() - 2, -1);
-            }
-
-            @Override
-            public void remove() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void set(T t) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void add(T t) {
-                throw new UnsupportedOperationException();
-            }
-        };
-    }
-
-    @NotNull
-    @Override
-    public Iterator<T> iterator() {
+    public Iterator<T> iterator(int index) {
         logger.info("Getting iterator from file: {}", this);
         try {
             awaitCompletion();
         } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
-        return iteratorFunc.apply(file.getAbsolutePath(), 0);
+        return iteratorFunc.apply(file.getAbsolutePath(), index);
+    }
+
+    @NotNull
+    @Override
+    public Iterator<T> iterator() {
+        return iterator(0);
     }
 
     @Override

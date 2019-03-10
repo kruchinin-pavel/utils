@@ -61,15 +61,6 @@ public class CachedListTest {
     }
 
     @Test
-    public void doListIterator() {
-        ListIterator<String[]> iter = cache.listIterator(0);
-        while (iter.hasNext()) {
-            String[] res = iter.next();
-            assertEquals(iter.previousIndex(), Integer.parseInt(res[0]));
-        }
-    }
-
-    @Test
     public void doGetTest() {
         int oldCacheSize = cache.getCachedSize();
         for (int i = 0; i < 5; i++) {
@@ -99,7 +90,7 @@ public class CachedListTest {
     }
 
     @Test
-    public void testClear() throws InterruptedException {
+    public void testClear() {
         assertEquals(COUNT, cache.size());
         cache.clear();
         assertEquals(0, cache.size());

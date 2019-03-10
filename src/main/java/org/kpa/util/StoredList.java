@@ -3,6 +3,7 @@ package org.kpa.util;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -88,6 +89,8 @@ public abstract class StoredList<T> implements List<T>, AutoCloseable {
     public ListIterator<T> listIterator() {
         return listIterator(0);
     }
+
+    public abstract Iterator<T> iterator(int index);
 
     @NotNull
     @Override

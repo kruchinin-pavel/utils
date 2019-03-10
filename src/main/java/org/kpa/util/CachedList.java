@@ -135,7 +135,7 @@ public class CachedList<T> extends StoredList<T> {
     @NotNull
     @Override
     public Iterator<T> iterator() {
-        return listIterator();
+        return store.iterator();
     }
 
     @Override
@@ -257,6 +257,11 @@ public class CachedList<T> extends StoredList<T> {
                 iterator.add(t);
             }
         };
+    }
+
+    @Override
+    public Iterator<T> iterator(int index) {
+        return store.iterator(index);
     }
 
 }
