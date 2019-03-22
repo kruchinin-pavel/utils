@@ -33,9 +33,9 @@ public class Amnt implements CryptoDto, Cloneable {
     private Function<String, Function<Double, Double>> prcSrc;
     private final Map<String, BigDecimal> valuesByCode = new HashMap<>();
     private final Map<String, BigDecimal> payload = new HashMap<>();
-    private final CachedVal<BigDecimal> total = new CachedVal<>(() ->
+    private final CachedVal<BigDecimal> total = CachedVal.getAlive(() ->
             valuesByCode.values().stream().reduce(BigDecimal::add).orElse(ZERO).stripTrailingZeros());
-    private final CachedVal<BigDecimal> rest = new CachedVal<>(() ->
+    private final CachedVal<BigDecimal> rest = CachedVal.getAlive(() ->
             valuesByCode.entrySet().stream()
                     .filter(e -> !e.getKey().equals(POS)).map(Map.Entry::getValue)
                     .reduce(BigDecimal::add).orElse(ZERO));

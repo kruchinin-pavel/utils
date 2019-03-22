@@ -23,7 +23,7 @@ public class Csv {
 
     public static <T extends Map<String, Object>> CloseableFlushableConsumer<T> writeTo(String fileName) {
         return new CloseableFlushableConsumer<T>() {
-            final CachedVal<CsvMapWriter> csvMapWriter = new CachedVal<>(() -> new CsvMapWriter(FileUtils.newBufferedWriter(fileName), CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE));
+            final CachedVal<CsvMapWriter> csvMapWriter = CachedVal.getAlive(() -> new CsvMapWriter(FileUtils.newBufferedWriter(fileName), CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE));
             private String[] cols = null;
 
             @Override
