@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -19,6 +20,41 @@ public class Helper {
         action.setEnabled(true);
         return action;
     }
+
+    public static void eventOnColumn(JTable tbl, MouseEvent evt, int columnIndex, Consumer<TableClickEvent> consumer) {
+        int modelCol = tbl.columnAtPoint(evt.getPoint());
+        int row = tbl.rowAtPoint(evt.getPoint());
+        if (modelCol == columnIndex && row != -1) {
+            Object valueAt = tbl.getValueAt(row, modelCol);
+            consumer.accept(new TableClickEvent(row,modelCol,tbl,evt,valueAt));
+        }
+    }
+
+    public static class TableClickEvent {
+        public final int col;
+        public final int row;
+        public final JTable tbl;
+        public final MouseEvent evt;
+        public final Object value;
+
+        public TableClickEvent(int row, int col, JTable tbl, MouseEvent evt, Object value) {
+            this.col = col;
+            this.row = row;
+            this.tbl = tbl;
+            this.evt = evt;
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return "TableClickEvent{" +
+                    "col=" + col +
+                    ", row=" + row +
+                    ", value=" + value +
+                    '}';
+        }
+    }
+
 
     public static Action newAction(String name, KeyStroke keyStroke, String description, InsecureEventListener listener) {
         AbstractAction abstractAction = new AbstractAction(name) {

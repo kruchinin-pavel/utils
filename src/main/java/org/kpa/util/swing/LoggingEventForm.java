@@ -3,6 +3,8 @@ package org.kpa.util.swing;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.uiDesigner.core.Spacer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -26,6 +28,7 @@ public class LoggingEventForm extends JFrame {
     private JPanel rootPanel;
     private JCheckBox cbBringOnTop;
     private int code = -1;
+    private static final Logger log = LoggerFactory.getLogger(LoggingEventForm.class);
 
     public int getCode() {
         return code;
@@ -69,10 +72,12 @@ public class LoggingEventForm extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                if (code != -1) {
-                    swingLater(() -> dispose());
+                if (code == -1) return;
+                swingLater(() -> {
+                    log.info("Calling exit on code={}", code);
+                    dispose();
                     System.exit(code);
-                }
+                });
             }
         });
         rootPanel.registerKeyboardAction(e -> setVisible(false),
