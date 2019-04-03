@@ -74,10 +74,7 @@ public class GuiAppender<E> extends UnsynchronizedAppenderBase<E> {
         if (form == null) {
             form = new LoggingEventForm();
             form.pack();
-            if (logFormRef.compareAndSet(null, form)) {
-                Runtime.getRuntime().addShutdownHook(
-                        new Thread(() -> logFormRef.get().dispose(), "GUIAppenderDisposer"));
-            } else {
+            if (!logFormRef.compareAndSet(null, form)) {
                 form.dispose();
                 form = logFormRef.get();
             }
