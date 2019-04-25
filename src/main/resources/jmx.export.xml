@@ -4,10 +4,7 @@
        xmlns:context="http://www.springframework.org/schema/context"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
 
-    <bean class="org.kpa.util.jmx.JmxHttpServer" init-method="start" destroy-method="stop">
-        <property name="port" value="8090"/>
-        <property name="adapterName" value="MBean"/>
-    </bean>
+
     <bean id="exporter" class="org.springframework.jmx.export.MBeanExporter">
         <property name="assembler" ref="assembler"/>
         <property name="namingStrategy" ref="namingStrategy"/>

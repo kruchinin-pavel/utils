@@ -8,6 +8,7 @@ public class JmxHttpServerTest {
     @Test
     public void testInitialization() throws InterruptedException {
         JmxHttpServer.initialize();
+//        Thread.sleep(100000000);
     }
 
 }
