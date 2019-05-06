@@ -22,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.util.zip.GZIPInputStream;
 
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
@@ -32,7 +33,10 @@ public class Utils {
 
     public static AutoCloseableIterator<Map<String, String>> readCsv(String fileName, CsvPreference pref) {
         try {
-            return readCsv(new InputStreamReader(Files.newInputStream(FileUtils.path(fileName))), Integer.MAX_VALUE, pref);
+            Path path = FileUtils.path(fileName);
+            InputStream is = Files.newInputStream(path);
+            if (path.getFileName().toString().toLowerCase().endsWith(".gz")) is = new GZIPInputStream(is);
+            return readCsv(new InputStreamReader(is), Integer.MAX_VALUE, pref);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

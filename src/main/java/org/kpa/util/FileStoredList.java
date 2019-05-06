@@ -49,17 +49,17 @@ public class FileStoredList<T> extends StoredList<T> {
     private ItemWrap<T> lastWrap = null;
 
     private void process(ItemWrap<T> wrap) {
-        if (wrap != null) {
-            if (lastWrap != null && !lastWrap.fileName.equals(wrap.fileName)) lastWrap = null;
-            if (lastWrap == null) lastWrap = new ItemWrap<>(new ArrayList<>(), wrap.fileName);
-            lastWrap.objects.addAll(wrap.objects);
-            return;
-        }
         try {
+            if (wrap != null) {
+                if (lastWrap != null && !lastWrap.fileName.equals(wrap.fileName)) lastWrap = null;
+                if (lastWrap == null) lastWrap = new ItemWrap<>(new ArrayList<>(), wrap.fileName);
+                lastWrap.objects.addAll(wrap.objects);
+                return;
+            }
             addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
             lastWrap.objects.clear();
         } catch (Throwable e) {
-            if (file==null || file.getAbsolutePath().equalsIgnoreCase(wrap.fileName)) {
+            if (file == null || (wrap != null && file.getAbsolutePath().equalsIgnoreCase(wrap.fileName))) {
                 throw new RuntimeException(e);
             }
         }
