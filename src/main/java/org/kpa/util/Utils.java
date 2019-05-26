@@ -139,26 +139,26 @@ public class Utils {
     }
 
     public static String fillUserAndHost(String fmt) {
-        String hostName;
         String userDir = System.getProperty("user.dir");
+        String userHome = System.getProperty("user.home");
+        userDir = userDir.replace(userHome, "~" + File.separatorChar);
+        userDir = userDir.replace("" + File.separatorChar + File.separatorChar, "" + File.separatorChar);
+        return String.format(fmt, System.getProperty("user.name"), getHostName(), userDir);
+    }
+
+    public static String getHostName() {
         try {
-            String userHome = System.getProperty("user.home");
-            userDir = userDir.replace(userHome, "~" + File.separatorChar);
-            userDir = userDir.replace("" + File.separatorChar + File.separatorChar, "" + File.separatorChar);
-            java.net.InetAddress localMachine = null;
-            localMachine = java.net.InetAddress.getLocalHost();
-            hostName = localMachine.getHostName();
+            return java.net.InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage());
             try {
-                hostName = Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
+                return Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
                         .collect(Collectors.joining(","));
             } catch (IOException e1) {
                 logger.warn("Can't get content of /etc/hostname. Hostname set unknown: {} ", e.getMessage(), e);
-                hostName = "unknown";
+                return "unknown";
             }
         }
-        return String.format(fmt, System.getProperty("user.name"), hostName, userDir);
     }
 
 
