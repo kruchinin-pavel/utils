@@ -149,7 +149,7 @@ public class Utils {
             localMachine = java.net.InetAddress.getLocalHost();
             hostName = localMachine.getHostName();
         } catch (Exception e) {
-            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage());
+            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage(), e);
             try {
                 hostName = Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
                         .collect(Collectors.joining(","));
