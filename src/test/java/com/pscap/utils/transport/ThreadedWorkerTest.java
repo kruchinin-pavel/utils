@@ -18,7 +18,7 @@ public class ThreadedWorkerTest {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-        }).dontSendNull().trackQueue();
+        }).dontSendNull();
 
         for (int i = 9; i < 100; i++) {
             wrk.accept("str:" + i);
