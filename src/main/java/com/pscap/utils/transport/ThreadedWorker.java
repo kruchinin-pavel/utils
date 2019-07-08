@@ -33,7 +33,14 @@ public class ThreadedWorker<T> implements Consumer<T> {
         this.consumer = consumer;
         executor = new ThreadPoolExecutor(0, 1, keepAlive, TimeUnit.MILLISECONDS,
                 workQueue, r -> {
-            Thread thread = new Thread(r);
+            Thread thread = new Thread(() -> {
+                try {
+                    currentThread.set(Thread.currentThread());
+                    r.run();
+                } finally {
+                    currentThread.compareAndSet(Thread.currentThread(), null);
+                }
+            });
             thread.setName(workerName + "-" + thrCounter.incrementAndGet());
             return thread;
         });
@@ -73,26 +80,21 @@ public class ThreadedWorker<T> implements Consumer<T> {
         }
         if (msgsCounter.incrementAndGet() == 1 && workQueue.size() < 2) {
             executor.submit(() -> {
+                T data;
                 try {
-                    currentThread.set(Thread.currentThread());
-                    T data;
-                    try {
-                        while ((data = messagesQueue.poll()) != null) {
-                            try {
-                                consumer.accept(data);
-                                if (sendNull && msgsCounter.get() == 1) {
-                                    consumer.accept(null);
-                                }
-                            } finally {
-                                msgsCounter.decrementAndGet();
+                    while ((data = messagesQueue.poll()) != null) {
+                        try {
+                            consumer.accept(data);
+                            if (sendNull && msgsCounter.get() == 1) {
+                                consumer.accept(null);
                             }
+                        } finally {
+                            msgsCounter.decrementAndGet();
                         }
-                    } catch (Throwable e) {
-                        log.error("Exception caught within executor: {}", e, e);
-                        lastException.set(e);
                     }
-                } finally {
-                    currentThread.compareAndSet(Thread.currentThread(), null);
+                } catch (Throwable e) {
+                    log.error("Exception caught within executor: {}", e, e);
+                    lastException.set(e);
                 }
             });
         }
