@@ -23,6 +23,11 @@ public class TurnoverCounter implements Cloneable {
         _maxValue = maxValue;
     }
 
+    public void reset() {
+        _lastTsMillis = 0;
+        _lastValue = 0;
+    }
+
     public void runIfCan(Runnable runnable) {
         runIfCan(runnable, null);
     }
