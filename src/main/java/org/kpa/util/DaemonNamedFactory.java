@@ -76,6 +76,7 @@ public class DaemonNamedFactory implements ThreadFactory {
             } catch (Exception e) {
                 errCounter.addValueSec(1.);
                 if (handler != null) handler.accept(e);
+                else throw e;
             }
             return true;
         }, name, delay_millis);
