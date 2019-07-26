@@ -34,6 +34,10 @@ public class DaemonNamedFactory implements ThreadFactory {
         Thread thread = new Thread(r);
         thread.setDaemon(isDaemon);
         thread.setName(name + "-" + cnt.incrementAndGet());
+        thread.setUncaughtExceptionHandler((t, e) -> {
+            log.error("Caught  unhandled exception in thread {}. STOP(1)!!! {}", thread, e.getLocalizedMessage(), e);
+            System.exit(1);
+        });
         return thread;
     }
 
