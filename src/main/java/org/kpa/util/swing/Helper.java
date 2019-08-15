@@ -45,6 +45,14 @@ public class Helper {
             this.value = value;
         }
 
+        public Object getCurVal() {
+            return tbl.getValueAt(row, col);
+        }
+
+        public Object getColVal(int col) {
+            return tbl.getValueAt(row, col);
+        }
+
         @Override
         public String toString() {
             return "TableClickEvent{" +
