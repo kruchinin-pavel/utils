@@ -2,7 +2,6 @@ package com.pscap.utils.transport;
 
 import com.google.common.base.Preconditions;
 import org.kpa.util.ThreadStates;
-import org.kpa.util.TurnoverCounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,7 +13,6 @@ import java.util.function.Consumer;
 public class ThreadedWorker<T> implements Consumer<T> {
     private boolean sendNull = true;
     private final Consumer<T> consumer;
-    private TurnoverCounter logCounter;
     private final ExecutorService executor;
     private final AtomicInteger msgsCounter = new AtomicInteger();
     private static final AtomicInteger thrCounter = new AtomicInteger();
@@ -35,7 +33,14 @@ public class ThreadedWorker<T> implements Consumer<T> {
         this.consumer = consumer;
         executor = new ThreadPoolExecutor(0, 1, keepAlive, TimeUnit.MILLISECONDS,
                 workQueue, r -> {
-            Thread thread = new Thread(r);
+            Thread thread = new Thread(() -> {
+                try {
+                    currentThread.set(Thread.currentThread());
+                    r.run();
+                } finally {
+                    currentThread.compareAndSet(Thread.currentThread(), null);
+                }
+            });
             thread.setName(workerName + "-" + thrCounter.incrementAndGet());
             return thread;
         });
@@ -49,13 +54,6 @@ public class ThreadedWorker<T> implements Consumer<T> {
 
     public ThreadedWorker<T> blockingQueue() {
         blockinQueue = true;
-        return this;
-    }
-
-    public ThreadedWorker<T> trackQueue() {
-        if (logCounter == null) {
-            logCounter = new TurnoverCounter(10_000, 10);
-        }
         return this;
     }
 
@@ -77,31 +75,26 @@ public class ThreadedWorker<T> implements Consumer<T> {
                 Thread.currentThread().interrupt();
             }
         }
-        if (logCounter != null && size() > 30) {
-            logCounter.runIfCan(() -> log.warn("Slow {}", this));
+        if (size() > 30) {
+            log.warn("Slow {}", this);
         }
         if (msgsCounter.incrementAndGet() == 1 && workQueue.size() < 2) {
             executor.submit(() -> {
+                T data;
                 try {
-                    currentThread.set(Thread.currentThread());
-                    T data;
-                    try {
-                        while ((data = messagesQueue.poll()) != null) {
-                            try {
-                                consumer.accept(data);
-                                if (sendNull && msgsCounter.get() == 1) {
-                                    consumer.accept(null);
-                                }
-                            } finally {
-                                msgsCounter.decrementAndGet();
+                    while ((data = messagesQueue.poll()) != null) {
+                        try {
+                            consumer.accept(data);
+                            if (sendNull && msgsCounter.get() == 1) {
+                                consumer.accept(null);
                             }
+                        } finally {
+                            msgsCounter.decrementAndGet();
                         }
-                    } catch (Throwable e) {
-                        log.error("Exception caught within executor: {}", e);
-                        lastException.set(e);
                     }
-                } finally {
-                    currentThread.compareAndSet(Thread.currentThread(), null);
+                } catch (Throwable e) {
+                    log.error("Exception caught within executor: {}", e, e);
+                    lastException.set(e);
                 }
             });
         }

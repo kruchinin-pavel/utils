@@ -24,7 +24,7 @@ public class Helper {
     public static void eventOnColumn(JTable tbl, MouseEvent evt, int columnIndex, Consumer<TableClickEvent> consumer) {
         int modelCol = tbl.columnAtPoint(evt.getPoint());
         int row = tbl.rowAtPoint(evt.getPoint());
-        if (modelCol == columnIndex && row != -1) {
+        if ((columnIndex == -1 || modelCol == columnIndex) && row != -1) {
             Object valueAt = tbl.getValueAt(row, modelCol);
             consumer.accept(new TableClickEvent(row,modelCol,tbl,evt,valueAt));
         }
@@ -43,6 +43,14 @@ public class Helper {
             this.tbl = tbl;
             this.evt = evt;
             this.value = value;
+        }
+
+        public Object getCurVal() {
+            return tbl.getValueAt(row, col);
+        }
+
+        public Object getColVal(int col) {
+            return tbl.getValueAt(row, col);
         }
 
         @Override

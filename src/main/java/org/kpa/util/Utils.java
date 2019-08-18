@@ -7,6 +7,7 @@ import org.supercsv.io.CsvMapReader;
 import org.supercsv.prefs.CsvPreference;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
@@ -148,19 +149,20 @@ public class Utils {
 
     public static String getHostName() {
         try {
-            return java.net.InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", e.getMessage());
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException var3) {
+            logger.warn("Can't get hostname. Looking at /etc/hostname. Msg: {}", var3.getMessage());
+
             try {
-                return Files.lines(Paths.get("/etc/hostname")).filter(v -> !Strings.isNullOrEmpty(v))
-                        .collect(Collectors.joining(","));
-            } catch (IOException e1) {
-                logger.warn("Can't get content of /etc/hostname. Hostname set unknown: {} ", e.getMessage(), e);
+                return (String)Files.lines(Paths.get("/etc/hostname")).filter((v) -> {
+                    return !Strings.isNullOrEmpty(v);
+                }).collect(Collectors.joining(","));
+            } catch (IOException var2) {
+                logger.warn("Can't get content of /etc/hostname. Hostname set unknown: {} ", var3.getMessage(), var3);
                 return "unknown";
             }
         }
     }
-
 
     public static <T extends ChronoBased> Iterable<T> sorted(Iterable<T> iterable) {
         return stream(iterable).sorted().collect(Collectors.toList());
