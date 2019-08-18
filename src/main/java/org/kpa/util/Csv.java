@@ -16,14 +16,19 @@ import java.util.stream.Stream;
 
 public class Csv {
     public static void toFile(String fileName, Stream<Map<String, Object>> stream) {
-        try (CloseableFlushableConsumer<Map<String, Object>> var = writeTo(fileName)) {
+        toFile(fileName, CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE, stream);
+    }
+
+    public static void toFile(String fileName, CsvPreference preference, Stream<Map<String, Object>> stream) {
+        try (CloseableFlushableConsumer<Map<String, Object>> var = writeTo(fileName, preference)) {
             stream.forEach(var::accept);
         }
     }
 
-    public static <T extends Map<String, Object>> CloseableFlushableConsumer<T> writeTo(String fileName) {
+    public static <T extends Map<String, Object>> CloseableFlushableConsumer<T> writeTo(String fileName, CsvPreference preference) {
         return new CloseableFlushableConsumer<T>() {
-            final CachedVal<CsvMapWriter> csvMapWriter = CachedVal.getAlive(() -> new CsvMapWriter(FileUtils.newBufferedWriter(fileName), CsvPreference.EXCEL_NORTH_EUROPE_PREFERENCE));
+            final CachedVal<CsvMapWriter> csvMapWriter = CachedVal.getAlive(() ->
+                    new CsvMapWriter(FileUtils.newBufferedWriter(fileName), preference));
             private String[] cols = null;
 
             @Override
