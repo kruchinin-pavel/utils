@@ -64,6 +64,11 @@ public class TurnoverCounter implements Cloneable {
         }
     }
 
+    public void setValue(double newValue) {
+        _lastTsMillis = millis.get();
+        _lastValue = newValue;
+    }
+
     public void addValue(double value) throws ValidationException {
         synchronized (this) {
             Preconditions.checkArgument(value > 0, "Value must be positive: %s", value);
