@@ -23,6 +23,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
     private final BlockingQueue<T> messagesQueue;
     private final String workerName;
     private boolean blockinQueue;
+    private int bigQueueThreshold = 30;
 
     public ThreadedWorker(long keepAlive, String workerName, Consumer<T> consumer) {
         this(keepAlive, workerName, consumer, 1_024 * 1_024);
@@ -45,6 +46,11 @@ public class ThreadedWorker<T> implements Consumer<T> {
             return thread;
         });
         this.workerName = workerName;
+    }
+
+    public ThreadedWorker<T> printSlowOnQueueSize(int bigQueueThreshold) {
+        this.bigQueueThreshold = bigQueueThreshold;
+        return this;
     }
 
     public ThreadedWorker<T> dontSendNull() {
@@ -75,7 +81,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
                 Thread.currentThread().interrupt();
             }
         }
-        if (size() > 30) {
+        if (size() > bigQueueThreshold) {
             log.warn("Slow {}", this);
         }
         if (msgsCounter.incrementAndGet() == 1 && workQueue.size() < 2) {
