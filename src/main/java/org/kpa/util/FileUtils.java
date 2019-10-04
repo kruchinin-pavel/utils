@@ -97,7 +97,7 @@ public class FileUtils {
                 return fileSystemMap.get(fileName);
             }
             Path zipfile = Paths.get(fileName);
-            FileSystem fileSystem = FileSystems.newFileSystem(zipfile, null);
+            FileSystem fileSystem = FileSystems.newFileSystem(zipfile, ClassLoader.getSystemClassLoader());
             fileSystemMap.put(fileName, fileSystem);
             return fileSystem;
         }
