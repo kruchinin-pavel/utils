@@ -57,16 +57,16 @@ public class DaemonNamedFactory implements ThreadFactory {
         return Executors.newCachedThreadPool(new DaemonNamedFactory(name, isDaemon));
     }
 
-    public static void schedule(Runnable processor, String name, long delay_millis) {
-        schedule(processor, name, delay_millis, e -> {
+    public static ScheduledFuture<?> schedule(Runnable processor, String name, long delay_millis) {
+        return schedule(processor, name, delay_millis, e -> {
             log.error("Uncaught error. STOP!!! {}", e.getMessage(), e);
             System.exit(1);
         });
     }
 
-    public static void schedule(Runnable processor, String name, long delay_millis, Consumer<Throwable> handler) {
+    public static ScheduledFuture<?> schedule(Runnable processor, String name, long delay_millis, Consumer<Throwable> handler) {
         TurnoverCounter errCounter = new TurnoverCounter(60_000, 1);
-        schedule(() -> {
+        return schedule(() -> {
             try {
                 if (errCounter.canAddValue(1.)) {
                     processor.run();
@@ -82,9 +82,9 @@ public class DaemonNamedFactory implements ThreadFactory {
         }, name, delay_millis);
     }
 
-    public static void schedule(Callable<Boolean> processor, String name, long delay_millis) {
+    public static ScheduledFuture<?> schedule(Callable<Boolean> processor, String name, long delay_millis) {
         ScheduledExecutorService service = DaemonNamedFactory.newScheduledExecutorService(name);
-        service.scheduleAtFixedRate(() -> {
+        return service.scheduleAtFixedRate(() -> {
             try {
                 if (!processor.call()) {
                     service.shutdown();
