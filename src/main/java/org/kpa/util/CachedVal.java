@@ -38,7 +38,7 @@ public class CachedVal<T> implements Supplier<T> {
                             val.evict();
                         }
                     }
-                    Thread.sleep(10);
+                    Thread.sleep(100);
                 } while (!Thread.currentThread().isInterrupted());
             } catch (InterruptedException e) {
                 logger.info("cached counter thread interrupted");
