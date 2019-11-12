@@ -3,6 +3,10 @@ package org.kpa.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.WeakReference;
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -12,10 +16,41 @@ import java.util.function.Supplier;
  */
 public class CachedVal<T> implements Supplier<T> {
     private T val;
+    private final long ttlMs;
     private final Supplier<T> getter;
     private final Consumer<T> disposer;
-    private final long ttlMs;
-    private final Logger logger = LoggerFactory.getLogger(CachedVal.class);
+    private static final Thread thread;
+    private final AtomicLong accessCount = new AtomicLong();
+    private static final Logger logger = LoggerFactory.getLogger(CachedVal.class);
+    private static final ConcurrentLinkedQueue<WeakReference<CachedVal<?>>> validVals = new ConcurrentLinkedQueue<>();
+
+    static {
+        thread = new Thread(() -> {
+            try {
+                do {
+                    Iterator<WeakReference<CachedVal<?>>> iter = validVals.iterator();
+                    while (iter.hasNext()) {
+                        WeakReference<CachedVal<?>> next = iter.next();
+                        CachedVal<?> val = next.get();
+                        if (val == null) {
+                            iter.remove();
+                        } else if (System.nanoTime() > val.accessCount.get()) {
+                            val.evict();
+                        }
+                    }
+                    Thread.sleep(10);
+                } while (!Thread.currentThread().isInterrupted());
+            } catch (InterruptedException e) {
+                logger.info("cached counter thread interrupted");
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.error("STOP: Error caught within cached counter thread: {}", e.getMessage(), e);
+                System.exit(1);
+            }
+        }, "cached counter");
+        thread.setDaemon(true);
+        thread.start();
+    }
 
     public CachedVal(Supplier<T> getter) {
         this(getter, v -> {
@@ -26,28 +61,17 @@ public class CachedVal<T> implements Supplier<T> {
         this.getter = getter;
         this.disposer = disposer;
         this.ttlMs = ttlMs;
+        synchronized (validVals) {
+            validVals.add(new WeakReference<>(this));
+        }
     }
 
-    private AtomicLong accessCount = new AtomicLong();
 
     @Override
     public T get() {
-        accessCount.incrementAndGet();
+        accessCount.set(System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(ttlMs));
         if (val == null) {
             val = getter.get();
-            new Thread(() -> {
-                try {
-                    long _accessCount;
-                    do {
-                        _accessCount = accessCount.get();
-                        Thread.sleep(ttlMs);
-                    } while (!accessCount.compareAndSet(_accessCount, 0));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    evict();
-                }
-            }, "cached counter").start();
         }
         return val;
     }
