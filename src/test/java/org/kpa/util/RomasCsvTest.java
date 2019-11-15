@@ -8,7 +8,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 @RunWith(Parameterized.class)
 public class RomasCsvTest {
@@ -26,7 +27,8 @@ public class RomasCsvTest {
     public void testParse() {
         RomasCsv csv = new RomasCsv(cols);
         Map<String, String> res = csv.parse(vals);
-        assertEquals(expOrdId, ((Map) res).get("Client orderId"));
+        assertEquals(expOrdId, res.get("Client orderId"));
+        assertFalse(res.get("Execution action").startsWith("\""));
     }
 
     @Parameterized.Parameters
@@ -36,6 +38,12 @@ public class RomasCsvTest {
                 new Object[]{cols,
                         "1550672675765,1121645,2019-02-24 00:11:25.223,EaCanceled{cancelReason='Canceled: Canceled via API.Submitted via API.', " +
                                 "instrumentId=1115, avgPx=0.0, cumQty=0}," +
+                                "true,7-9-1126205-0-085205,instrumentId=1115 originalCliOrderId=7-9-1126132-0-981531 cancelReason=Canceled: Canceled via API.Submitted via API. price=0.0 cumQty=0,EaCanceled - for high priority order. Closing batch: Closed",
+                        "7-9-1126205-0-085205"
+                },
+                new Object[]{cols,
+                        "1550672675765,1121645,2019-02-24 00:11:25.223,\"EaCanceled{cancelReason=\"\"Canceled: Canceled via API.Submitted via API.\"\", " +
+                                "instrumentId=1115, avgPx=0.0, cumQty=0}\"," +
                                 "true,7-9-1126205-0-085205,instrumentId=1115 originalCliOrderId=7-9-1126132-0-981531 cancelReason=Canceled: Canceled via API.Submitted via API. price=0.0 cumQty=0,EaCanceled - for high priority order. Closing batch: Closed",
                         "7-9-1126205-0-085205"
                 },

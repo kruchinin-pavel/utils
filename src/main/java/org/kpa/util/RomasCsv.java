@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class RomasCsv {
     private static final CharMatcher delimMatch = CharMatcher.anyOf(",");
@@ -56,7 +55,12 @@ public class RomasCsv {
                 "Row and columns are not equal: columns=%s, rawString=%s", columnNames, _line);
         Map<String, String> row = new LinkedHashMap<>();
         for (int i = 0; i < columnNames.size(); i++) {
-            row.put(columnNames.get(i), values.get(i));
+            String value = values.get(i);
+            if (value.contains("\"")) {
+                value = value.replace("\"\"", "\"");
+                value = value.substring(value.startsWith("\"") ? 1 : 0, value.length() - (value.endsWith("\"") ? 1 : 0));
+            }
+            row.put(columnNames.get(i), value);
         }
         return row;
     }
