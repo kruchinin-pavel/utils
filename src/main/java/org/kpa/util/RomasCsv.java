@@ -3,7 +3,7 @@ package org.kpa.util;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import jdk.internal.joptsimple.internal.Strings;
+import com.google.common.base.Strings;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
