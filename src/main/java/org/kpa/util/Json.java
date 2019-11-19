@@ -9,9 +9,13 @@ import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.input.BOMInputStream;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.nio.charset.Charset;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -165,6 +169,14 @@ public class Json {
                     return obj;
                 }
 
+                @Override
+                public String toString() {
+                    return "JsonIterator{" +
+                            "fileName='" + fileName + '\'' +
+                            ", next='" + next + '\'' +
+                            ", lineCounter='" + lineCounter.get() + '\'' +
+                            '}';
+                }
             };
         }
 
