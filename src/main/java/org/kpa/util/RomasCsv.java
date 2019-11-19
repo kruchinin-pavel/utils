@@ -3,11 +3,14 @@ package org.kpa.util;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import jdk.internal.joptsimple.internal.Strings;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Collections.emptyList;
 
 public class RomasCsv {
     private static final CharMatcher delimMatch = CharMatcher.anyOf(",");
@@ -16,7 +19,8 @@ public class RomasCsv {
     private final List<String> columnNames;
 
     public RomasCsv(String colNameStr) {
-        columnNames = Splitter.on(",").trimResults().splitToList(colNameStr);
+        columnNames = Strings.isNullOrEmpty(colNameStr) ? emptyList() :
+                Splitter.on(",").trimResults().splitToList(colNameStr);
     }
 
     private int lookupOpen(String line, int fromIndex, int openedCount) {
