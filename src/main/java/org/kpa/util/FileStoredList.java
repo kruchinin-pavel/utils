@@ -30,7 +30,7 @@ public class FileStoredList<T> extends StoredList<T> {
             o -> {
                 if (o != null) o.list.process((ItemWrap) o);
                 else items.forEach(v -> v.process(null));
-            }, 1_024 * 1_024).blockingQueue();
+            }, 1_024 * 1_024).printSlowOnQueueSize(5_000).blockingQueue();
 
     public FileStoredList(String id,
                           BiConsumer<String, Collection<? extends T>> addAllFunc,
