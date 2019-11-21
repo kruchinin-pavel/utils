@@ -4,7 +4,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.*;
@@ -27,7 +30,7 @@ public class CachedListTest {
                     "" + ThreadLocalRandom.current().nextLong(),
                     "" + ThreadLocalRandom.current().nextLong()});
         }
-        cache = CachedList.createCachedStringArray("tmp", CACHE_CAPACITY, CACHE_CAPACITY, CACHE_STEP);
+        cache = CachedList.createCachedStringArray("tmp", CACHE_CAPACITY, CACHE_STEP);
         expected.forEach(cache::add);
     }
 

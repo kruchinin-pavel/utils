@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -19,45 +20,50 @@ import java.util.function.BiFunction;
 public class FileStoredList<T> extends StoredList<T> {
     private File file;
     public final String id;
-    private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
-    private final ThreadedWorker<ItemWrap<T>> executor;
+    private ItemWrap<T> lastWrap = null;
     private final AtomicInteger size = new AtomicInteger();
     private final BiConsumer<String, Collection<? extends T>> addAllFunc;
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
+    private static final Set<FileStoredList> items = new CopyOnWriteArraySet<>();
+    private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
+    private final ThreadedWorker<ItemWrap<?>> executor = new ThreadedWorker<ItemWrap<?>>(5_000, "str_cache",
+            o -> {
+                if (o != null) o.list.process((ItemWrap) o);
+                else items.forEach(v -> v.process(null));
+            }, 1_024 * 1_024).blockingQueue();
 
-    public FileStoredList(String id, int queueCapacity,
+    public FileStoredList(String id,
                           BiConsumer<String, Collection<? extends T>> addAllFunc,
                           BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
         this.id = id;
         this.addAllFunc = addAllFunc;
         this.iteratorFunc = iteratorFunc;
         updateFileName();
-        executor = new ThreadedWorker<>(5_000, "str_cache",
-                this::process, queueCapacity).blockingQueue();
+        items.add(this);
     }
 
     private static class ItemWrap<T> {
         public final Collection<T> objects;
-        public final String fileName;
+        private final FileStoredList<T> list;
+        final String fileName;
 
-        private ItemWrap(Collection<T> objects, String fileName) {
+        private ItemWrap(FileStoredList<T> list, Collection<T> objects, String fileName) {
+            this.list = list;
             this.fileName = fileName;
             this.objects = objects;
         }
     }
 
-    private ItemWrap<T> lastWrap = null;
-
     private void process(ItemWrap<T> wrap) {
         try {
             if (wrap != null) {
                 if (lastWrap != null && !lastWrap.fileName.equals(wrap.fileName)) lastWrap = null;
-                if (lastWrap == null) lastWrap = new ItemWrap<>(new ArrayList<>(), wrap.fileName);
+                if (lastWrap == null) lastWrap = new ItemWrap<>(this, new ArrayList<>(), wrap.fileName);
                 lastWrap.objects.addAll(wrap.objects);
-                return;
+            } else {
+                addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
+                lastWrap.objects.clear();
             }
-            addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
-            lastWrap.objects.clear();
         } catch (Throwable e) {
             if (file == null || (wrap != null && file.getAbsolutePath().equalsIgnoreCase(wrap.fileName))) {
                 throw new RuntimeException(e);
@@ -82,7 +88,7 @@ public class FileStoredList<T> extends StoredList<T> {
     public boolean addAll(@NotNull Collection<? extends T> values) {
         if (values.size() == 0) return false;
         size.addAndGet(values.size());
-        executor.accept(new ItemWrap<>((Collection<T>) values, file.getAbsolutePath()));
+        executor.accept(new ItemWrap<>(this, (Collection<T>) values, file.getAbsolutePath()));
         return true;
     }
 
@@ -169,6 +175,7 @@ public class FileStoredList<T> extends StoredList<T> {
         try {
             awaitCompletion();
             Files.deleteIfExists(Paths.get(file.toString()));
+            items.remove(this);
             logger.info("Cache disposed: {}", this);
         } catch (IOException e) {
             logger.warn("Cache dispose error: {}", e.getMessage(), e);

@@ -180,14 +180,7 @@ public class CachedList<T> extends StoredList<T> {
 
 
     public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int step) {
-        return new CachedList<>(new FileStoredList<>(id, 1024 * 2014,
-                (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
-                (file, startIndex) ->
-                        Utils.convert(Json.iterableFile(file, StringArray.class, null, startIndex), sa -> sa.data).iterator()), cacheCapacity, step);
-    }
-
-    public static CachedList<String[]> createCachedStringArray(String id, int cacheCapacity, int queueCapacity, int step) {
-        return new CachedList<>(new FileStoredList<>(id, queueCapacity,
+        return new CachedList<>(new FileStoredList<>(id,
                 (file, strings) -> Json.toFile(file, strings.stream().map(StringArray::new), StandardOpenOption.APPEND),
                 (file, startIndex) ->
                         Utils.convert(Json.iterableFile(file, StringArray.class, null, startIndex), sa -> sa.data).iterator()), cacheCapacity, step);
@@ -196,13 +189,7 @@ public class CachedList<T> extends StoredList<T> {
     public static <T> CachedList<T> createCached(String id, int cacheCapacity, int step,
                                                  BiConsumer<String, Collection<? extends T>> addAllFunc,
                                                  BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
-        return new CachedList<T>(new FileStoredList<>(id, 1024 * 2014, addAllFunc, iteratorFunc), cacheCapacity, step);
-    }
-
-    public static <T> CachedList<T> createCached(String id, int cacheCapacity, int queueCapacity, int step,
-                                                 BiConsumer<String, Collection<? extends T>> addAllFunc,
-                                                 BiFunction<String, Integer, Iterator<T>> iteratorFunc) {
-        return new CachedList<T>(new FileStoredList<>(id, queueCapacity, addAllFunc, iteratorFunc), cacheCapacity, step);
+        return new CachedList<T>(new FileStoredList<>(id, addAllFunc, iteratorFunc), cacheCapacity, step);
     }
 
     @NotNull
