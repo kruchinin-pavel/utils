@@ -13,7 +13,9 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -26,10 +28,20 @@ public class FileStoredList<T> extends StoredList<T> {
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
     private static final Set<FileStoredList> items = new CopyOnWriteArraySet<>();
     private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
-    private final ThreadedWorker<ItemWrap<?>> executor = new ThreadedWorker<ItemWrap<?>>(5_000, "str_cache",
+    private final ThreadedWorker<Object> executor = new ThreadedWorker<Object>(5_000, "str_cache",
             o -> {
-                if (o != null) o.list.process((ItemWrap) o);
-                else items.forEach(v -> v.process(null));
+                if (o == null || !(o instanceof ItemWrap)) {
+                    items.forEach(v -> v.process(null));
+                }
+                if (o != null) {
+                    if (o instanceof ItemWrap) {
+                        ((ItemWrap) o).list.process((ItemWrap) o);
+                    } else if (o instanceof Runnable) {
+                        ((Runnable) o).run();
+                    } else {
+                        throw new IllegalArgumentException("Unknown object: " + o);
+                    }
+                }
             }, 1_024 * 1_024).printSlowOnQueueSize(5_000).blockingQueue();
 
     public FileStoredList(String id,
@@ -107,13 +119,24 @@ public class FileStoredList<T> extends StoredList<T> {
     @Override
     public T get(int index) {
         logger.info("Getting from cache by index {}: {}", index, this);
-        try {
-            awaitCompletion();
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
+        AtomicReference<T> res = new AtomicReference<>();
+        executor.accept((Runnable) () -> {
+            Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
+            res.set(iter.next());
+        });
+        long upTime = System.currentTimeMillis() + 30_000;
+        while (res.get() == null) {
+            if (System.currentTimeMillis() > upTime) {
+                throw new RuntimeException("Didn't awaited for result");
+            }
+            try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
-        Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
-        return iter.next();
+        return res.get();
     }
 
     @Override
@@ -126,13 +149,31 @@ public class FileStoredList<T> extends StoredList<T> {
         } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
-        Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
         List<T> ret = new ArrayList<>();
-        int index = startIndex;
-        while (iter.hasNext() && index++ < toIndex) {
-            ret.add(iter.next());
+        AtomicBoolean done = new AtomicBoolean();
+        executor.accept((Runnable) () -> {
+            Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
+
+            int index = startIndex;
+            while (iter.hasNext() && index++ < toIndex) {
+                ret.add(iter.next());
+            }
+            done.set(true);
+        });
+        long upTime = System.currentTimeMillis() + 30_000;
+        while (!done.get()) {
+            if (System.currentTimeMillis() > upTime) {
+                throw new RuntimeException("Didn't awaited for result");
+            }
+            try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         return ret;
+
     }
 
     public Iterator<T> iterator(int index) {
