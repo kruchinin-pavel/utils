@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -24,11 +24,12 @@ public class FileStoredList<T> extends StoredList<T> {
     public final String id;
     private ItemWrap<T> lastWrap = null;
     private final AtomicInteger size = new AtomicInteger();
+    private final AtomicLong storedSize = new AtomicLong();
     private final BiConsumer<String, Collection<? extends T>> addAllFunc;
     private final BiFunction<String, Integer, Iterator<T>> iteratorFunc;
     private static final Set<FileStoredList> items = new CopyOnWriteArraySet<>();
     private static final Logger logger = LoggerFactory.getLogger(FileStoredList.class);
-    private final ThreadedWorker<Object> executor = new ThreadedWorker<Object>(5_000, "str_cache",
+    private static final ThreadedWorker<Object> executor = new ThreadedWorker<>(5_000, "str_cache",
             o -> {
                 if (o == null || !(o instanceof ItemWrap)) {
                     items.forEach(v -> v.process(null));
@@ -56,13 +57,15 @@ public class FileStoredList<T> extends StoredList<T> {
 
     private static class ItemWrap<T> {
         public final Collection<T> objects;
+        private final long storedSize;
         private final FileStoredList<T> list;
         final String fileName;
 
-        private ItemWrap(FileStoredList<T> list, Collection<T> objects, String fileName) {
+        private ItemWrap(FileStoredList<T> list, Collection<T> objects, String fileName, long storedSize) {
             this.list = list;
             this.fileName = fileName;
             this.objects = objects;
+            this.storedSize = storedSize;
         }
     }
 
@@ -70,18 +73,19 @@ public class FileStoredList<T> extends StoredList<T> {
         try {
             if (wrap != null) {
                 if (lastWrap != null && !lastWrap.fileName.equals(wrap.fileName)) lastWrap = null;
-                if (lastWrap == null) lastWrap = new ItemWrap<>(this, new ArrayList<>(), wrap.fileName);
+                if (lastWrap == null)
+                    lastWrap = new ItemWrap<>(this, new ArrayList<>(), wrap.fileName, wrap.storedSize);
                 lastWrap.objects.addAll(wrap.objects);
             } else {
                 addAllFunc.accept(lastWrap.fileName, lastWrap.objects);
                 lastWrap.objects.clear();
+                storedSize.set(lastWrap.storedSize);
             }
         } catch (Throwable e) {
             if (file == null || (wrap != null && file.getAbsolutePath().equalsIgnoreCase(wrap.fileName))) {
                 throw new RuntimeException(e);
             }
         }
-
     }
 
     private void updateFileName() {
@@ -100,7 +104,7 @@ public class FileStoredList<T> extends StoredList<T> {
     public boolean addAll(@NotNull Collection<? extends T> values) {
         if (values.size() == 0) return false;
         size.addAndGet(values.size());
-        executor.accept(new ItemWrap<>(this, (Collection<T>) values, file.getAbsolutePath()));
+        executor.accept(new ItemWrap<>(this, (Collection<T>) values, file.getAbsolutePath(), size.get()));
         return true;
     }
 
@@ -119,61 +123,45 @@ public class FileStoredList<T> extends StoredList<T> {
     @Override
     public T get(int index) {
         logger.info("Getting from cache by index {}: {}", index, this);
-        AtomicReference<T> res = new AtomicReference<>();
-        executor.accept((Runnable) () -> {
-            Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
-            res.set(iter.next());
-        });
-        long upTime = System.currentTimeMillis() + 30_000;
-        while (res.get() == null) {
-            if (System.currentTimeMillis() > upTime) {
-                throw new RuntimeException("Didn't awaited for result");
-            }
-            try {
-                Thread.sleep(1_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        return res.get();
+        awaitForStoringIndex(index);
+        Iterator<? extends T> iter = iteratorFunc.apply(file.getAbsolutePath(), index);
+        return iter.next();
     }
 
     @Override
     public List<T> subList(int startIndex, int toIndex) {
         Preconditions.checkArgument(toIndex >= startIndex && toIndex <= size(),
                 "Invalid toIndex: %s. Size: %s. startIndex=%s", toIndex, size(), startIndex);
+        awaitForStoringIndex(toIndex);
         logger.info("Getting from cache sublist from index {}: {}", startIndex, this);
-        try {
-            awaitCompletion();
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
         List<T> ret = new ArrayList<>();
-        AtomicBoolean done = new AtomicBoolean();
-        executor.accept((Runnable) () -> {
-            Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
-
-            int index = startIndex;
-            while (iter.hasNext() && index++ < toIndex) {
-                ret.add(iter.next());
-            }
-            done.set(true);
-        });
-        long upTime = System.currentTimeMillis() + 30_000;
-        while (!done.get()) {
-            if (System.currentTimeMillis() > upTime) {
-                throw new RuntimeException("Didn't awaited for result");
-            }
-            try {
-                Thread.sleep(1_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+        Iterator<T> iter = iteratorFunc.apply(file.getAbsolutePath(), startIndex);
+        int index = startIndex;
+        while (iter.hasNext() && index++ < toIndex) {
+            ret.add(iter.next());
         }
         return ret;
+    }
 
+    private void awaitForStoringIndex(int index) {
+        if (index >= storedSize.get()) {
+            AtomicBoolean returned = new AtomicBoolean();
+            executor.accept((Runnable) () -> {
+                logger.info("Waiting for storing");
+                returned.set(true);
+            });
+            long upTime = System.currentTimeMillis() + 10_000;
+            while (!returned.get()) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (System.currentTimeMillis() > upTime) {
+                    throw new RuntimeException(new TimeoutException("Didn't await for storing index: " + index));
+                }
+            }
+        }
     }
 
     public Iterator<T> iterator(int index) {
