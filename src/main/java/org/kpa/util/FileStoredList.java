@@ -146,10 +146,7 @@ public class FileStoredList<T> extends StoredList<T> {
     private void awaitForStoringIndex(int index) {
         if (index >= storedSize.get()) {
             AtomicBoolean returned = new AtomicBoolean();
-            executor.accept((Runnable) () -> {
-                logger.info("Waiting for storing");
-                returned.set(true);
-            });
+            executor.accept((Runnable) () -> returned.set(true));
             long upTime = System.currentTimeMillis() + 10_000;
             while (!returned.get()) {
                 try {
