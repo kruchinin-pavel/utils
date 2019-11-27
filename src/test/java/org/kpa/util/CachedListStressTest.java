@@ -49,7 +49,7 @@ public class CachedListStressTest {
         }
         comparison.shutdown();
         comparison.awaitTermination(3, TimeUnit.MINUTES);
-        res.stream().forEach(t -> {
+        res.forEach(t -> {
             try {
                 assertTrue(t.get());
             } catch (Exception e) {
