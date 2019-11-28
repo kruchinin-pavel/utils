@@ -17,9 +17,11 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -289,4 +291,39 @@ public class Utils {
         return iter;
     }
 
+    public static <T> T waitOrThrow(long timeoutMillis, Supplier<T> supplier) {
+        return awaitCompletion(timeoutMillis, supplier,
+                () -> {
+                },
+                () -> {
+                    throw new RuntimeException(new TimeoutException());
+                }
+        );
+    }
+
+    public static <T> T waitOrThrow(long timeoutMillis, Supplier<String> waitMessage, Supplier<T> supplier) {
+        return awaitCompletion(timeoutMillis, supplier,
+                () -> logger.info(waitMessage.get()),
+                () -> {
+                    throw new RuntimeException(new TimeoutException());
+                }
+        );
+    }
+
+    public static <T> T awaitCompletion(long timeoutMillis, Supplier<T> supplier,
+                                        Runnable onWait,
+                                        Runnable onTimeout) {
+        long upTime = System.currentTimeMillis() + timeoutMillis;
+        T res;
+        while ((res = supplier.get()) == null) {
+            try {
+                onWait.run();
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (System.currentTimeMillis() > upTime) onTimeout.run();
+        }
+        return res;
+    }
 }

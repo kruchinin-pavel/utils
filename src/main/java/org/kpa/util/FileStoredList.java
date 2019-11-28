@@ -12,10 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -116,10 +115,6 @@ public class FileStoredList<T> extends StoredList<T> {
         return addAll(Collections.singleton(val));
     }
 
-    public void awaitCompletion() throws InterruptedException, TimeoutException {
-        executor.join();
-    }
-
     @Override
     public T get(int index) {
         logger.info("Getting from cache by index {}: {}", index, this);
@@ -145,29 +140,15 @@ public class FileStoredList<T> extends StoredList<T> {
 
     private void awaitForStoringIndex(int index) {
         if (index >= storedSize.get()) {
-            AtomicBoolean returned = new AtomicBoolean();
+            AtomicReference<Boolean> returned = new AtomicReference<>();
             executor.accept((Runnable) () -> returned.set(true));
-            long upTime = System.currentTimeMillis() + 10_000;
-            while (!returned.get()) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                if (System.currentTimeMillis() > upTime) {
-                    throw new RuntimeException(new TimeoutException("Didn't await for storing index: " + index));
-                }
-            }
+            Utils.waitOrThrow(10_000, returned::get);
         }
     }
 
     public Iterator<T> iterator(int index) {
         logger.info("Getting iterator from file: {}", this);
-        try {
-            awaitCompletion();
-        } catch (InterruptedException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+        awaitForStoringIndex(size());
         return iteratorFunc.apply(file.getAbsolutePath(), index);
     }
 
@@ -196,20 +177,18 @@ public class FileStoredList<T> extends StoredList<T> {
         }
     }
 
+    private final RunOnce doClose = new RunOnce();
     @Override
     public void close() {
-        try {
-            awaitCompletion();
-            Files.deleteIfExists(Paths.get(file.toString()));
-            items.remove(this);
-            logger.info("Cache disposed: {}", this);
-        } catch (IOException e) {
-            logger.warn("Cache dispose error: {}", e.getMessage(), e);
-        } catch (TimeoutException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        doClose.runOnce(() -> {
+            try {
+                Files.deleteIfExists(Paths.get(file.toString()));
+                items.remove(this);
+                logger.info("Cache disposed: {}", this);
+            } catch (IOException e) {
+                logger.warn("Cache dispose error: {}", e.getMessage(), e);
+            }
+        });
     }
 
     @Override
