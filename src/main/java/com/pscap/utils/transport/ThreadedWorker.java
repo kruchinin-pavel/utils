@@ -99,7 +99,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
                         }
                     }
                 } catch (Throwable e) {
-                    log.error("Exception caught within executor: {}", e, e);
+                    log.error("Exception caught within executor(set to lastException ref): {}", e.getMessage(), e);
                     lastException.set(e);
                 }
             });
