@@ -17,10 +17,18 @@ public class TurnoverCounter implements Cloneable {
     private final long _rangeMillis;
     private long _lastTsMillis;
     private double _lastValue;
+    private double rateToMillis;
 
     public TurnoverCounter(long rangeMillis, double maxValue) {
+        this(rangeMillis, maxValue, false);
+    }
+
+    public TurnoverCounter(long rangeMillis, double maxValue, boolean linear) {
         _rangeMillis = rangeMillis;
         _maxValue = maxValue;
+        if (linear) {
+            rateToMillis = maxValue / rangeMillis;
+        }
     }
 
     public void reset() {
@@ -52,8 +60,11 @@ public class TurnoverCounter implements Cloneable {
     }
 
     public double getLastVal() {
-        double amortization = (double) Math.max(_rangeMillis - (millis.get() - _lastTsMillis), 0) / _rangeMillis;
-        return _lastValue * amortization;
+        if (rateToMillis > 0) {
+            return Math.max(_lastValue - rateToMillis * (millis.get() - _lastTsMillis), 0.);
+        } else {
+            return _lastValue * ((double) Math.max(_rangeMillis - (millis.get() - _lastTsMillis), 0) / _rangeMillis);
+        }
     }
 
     public void addValueSec(double value) {
