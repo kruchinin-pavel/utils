@@ -64,7 +64,14 @@ public class FileUtils {
     public static BufferedWriter newBufferedWriter(Path path) {
         try {
             if (path.toString().endsWith("gz")) {
-                return new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(Files.newOutputStream(path))));
+                GZIPOutputStream out = new GZIPOutputStream(Files.newOutputStream(path), 512, true);
+                return new BufferedWriter(new OutputStreamWriter(out){
+                    @Override
+                    public void close() throws IOException {
+                        super.close();
+                        out.close();
+                    }
+                });
             }
             return Files.newBufferedWriter(path);
         } catch (IOException e) {
