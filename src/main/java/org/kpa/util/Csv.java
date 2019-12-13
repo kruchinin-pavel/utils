@@ -4,6 +4,7 @@ import org.supercsv.io.CsvMapReader;
 import org.supercsv.io.CsvMapWriter;
 import org.supercsv.prefs.CsvPreference;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -26,13 +27,16 @@ public class Csv {
     }
 
     public static <T extends Map<String, Object>> CloseableFlushableConsumer<T> writeTo(String fileName, CsvPreference preference) {
+
         return new CloseableFlushableConsumer<T>() {
-            final CsvMapWriter csvMapWriter = new CsvMapWriter(FileUtils.newBufferedWriter(fileName), preference);
+            final BufferedWriter writer = FileUtils.newBufferedWriter(fileName);
+            final CsvMapWriter csvMapWriter = new CsvMapWriter(writer, preference);
             private String[] cols = null;
 
             @Override
             public void close() {
                 try {
+                    flush();
                     csvMapWriter.close();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -56,6 +60,7 @@ public class Csv {
 
             @Override
             public void flush() throws IOException {
+                writer.flush();
                 csvMapWriter.flush();
             }
         };
