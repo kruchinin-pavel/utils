@@ -88,13 +88,16 @@ public class FileStoredList<T> extends StoredList<T> {
     }
 
     private void updateFileName() {
+        File oldFile = null;
         try {
-            File oldFile = this.file;
+            oldFile = this.file;
             this.file = File.createTempFile("string_cache", id);
-            file.deleteOnExit();
             logger.info("New {} cache created: {}. modCount={}", id, this.file, modCount);
-            if (oldFile != null) Files.deleteIfExists(Paths.get(oldFile.toString()));
+            if (oldFile != null) {
+                Files.deleteIfExists(Paths.get(oldFile.toString()));
+            }
         } catch (IOException e) {
+            if (oldFile != null) file.deleteOnExit();
             throw new RuntimeException(e);
         }
     }
