@@ -15,6 +15,7 @@ public interface InsecureConsumer<T> {
             try {
                 consumer.accept(v);
             } catch (Exception e) {
+                if (e instanceof RuntimeException) throw (RuntimeException) e;
                 throw new RuntimeException(e);
             }
         };
