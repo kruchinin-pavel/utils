@@ -9,6 +9,7 @@ import org.supercsv.prefs.CsvPreference;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,13 +37,21 @@ public class Utils {
 
     public static AutoCloseableIterator<Map<String, String>> readCsv(String fileName, CsvPreference pref) {
         try {
-            Path path = FileUtils.path(fileName);
-            InputStream is = Files.newInputStream(path);
-            if (path.getFileName().toString().toLowerCase().endsWith(".gz")) is = new GZIPInputStream(is);
+            InputStream is;
+            is = getInputStream(fileName);
             return readCsv(new InputStreamReader(is), Integer.MAX_VALUE, pref);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static InputStream getInputStream(String fileName) throws IOException {
+        InputStream is;
+        Path path = FileUtils.path(fileName);
+        if (!Files.isRegularFile(path)) is = URLClassLoader.getSystemResourceAsStream(fileName);
+        else is = Files.newInputStream(path);
+        if (path.getFileName().toString().toLowerCase().endsWith(".gz")) is = new GZIPInputStream(is);
+        return is;
     }
 
     public static AutoCloseableIterator<Map<String, String>> readRomasCsv(String fileName) {
