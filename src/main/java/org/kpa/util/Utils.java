@@ -1,5 +1,6 @@
 package org.kpa.util;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,7 @@ public class Utils {
         if (!Files.isRegularFile(path)) is = URLClassLoader.getSystemResourceAsStream(fileName);
         else is = Files.newInputStream(path);
         if (path.getFileName().toString().toLowerCase().endsWith(".gz")) is = new GZIPInputStream(is);
+        Preconditions.checkNotNull(is, "Not found: %s", fileName);
         return is;
     }
 
