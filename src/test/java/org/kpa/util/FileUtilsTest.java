@@ -9,7 +9,9 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.kpa.util.Utils.localHostAndUserName;
 import static org.kpa.util.Utils.stream;
@@ -34,4 +36,12 @@ public class FileUtilsTest {
         assertTrue(lst.size() > 0);
     }
 
+    @Test
+    public void testSlice(){
+        List<List<Integer>> slices = Utils.slice(Stream.of(1, 2, 3, 4, 5, 6, 7), 3);
+        assertEquals(3,slices.size());
+        assertEquals(3,slices.get(0).size());
+        assertEquals(3,slices.get(1).size());
+        assertEquals(1,slices.get(2).size());
+    }
 }

@@ -15,10 +15,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -336,5 +333,16 @@ public class Utils {
             if (System.currentTimeMillis() > upTime) onTimeout.run();
         }
         return res;
+    }
+
+    public static <T> List<List<T>> slice(Stream<T> list, int blockSize) {
+        Preconditions.checkArgument(blockSize > 0, "Block size must be >0: %s", blockSize);
+        LinkedList<List<T>> listOfList = new LinkedList<>();
+        final AtomicLong i = new AtomicLong();
+        list.forEach(entry -> {
+            if (i.getAndIncrement() % blockSize == 0) listOfList.add(new ArrayList<>());
+            listOfList.getLast().add(entry);
+        });
+        return listOfList;
     }
 }
