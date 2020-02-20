@@ -113,7 +113,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
 
     public void join() throws TimeoutException, InterruptedException {
         long upTime = System.currentTimeMillis() + 30_000;
-        while (msgsCounter.get() > 0) {
+        while (msgsCounter.get() > 0 || currentThread.get() != null) {
             if (lastException.get() != null) {
                 Throwable exception = lastException.get();
                 throw new IllegalArgumentException("Got unprocessed exception in buffer: " + exception.getMessage(), exception);
