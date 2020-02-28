@@ -15,8 +15,8 @@ public interface InsecureConsumer<T> {
             try {
                 consumer.accept(v);
             } catch (Exception e) {
-                if (e instanceof RuntimeException) throw (RuntimeException) e;
-                throw new RuntimeException(e);
+                throw new RuntimeException("Unprocessed Exception in InsecureConsumer(v): v=" + v
+                        + ", msg=" + e.getMessage(), e);
             }
         };
     }
@@ -26,7 +26,7 @@ public interface InsecureConsumer<T> {
             try {
                 consumer.accept(v);
             } catch (Exception e) {
-                logger.error("Error in {}. Ignoring.", e);
+                logger.error("Error in InsecureConsumer(v). v={}, msg={}. Ignoring.", v, e.getMessage(), e);
             }
         };
     }
