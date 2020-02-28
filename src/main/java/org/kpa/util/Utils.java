@@ -49,7 +49,8 @@ public class Utils {
         if (!Files.isRegularFile(path)) is = URLClassLoader.getSystemResourceAsStream(fileName);
         else is = Files.newInputStream(path);
         if (path.getFileName().toString().toLowerCase().endsWith(".gz")) is = new GZIPInputStream(is);
-        Preconditions.checkNotNull(is, "Not found: %s", fileName);
+        Preconditions.checkNotNull(is, "Not found: %s. Cur.dir=%s", fileName,
+                new File(".").getAbsolutePath());
         return is;
     }
 
