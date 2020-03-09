@@ -70,8 +70,7 @@ public class ThreadedWorker<T> implements Consumer<T> {
 
     @Override
     public void accept(T row) {
-        Preconditions.checkArgument(lastException.get() == null, "Got unprocessed " +
-                "exception in buffer: %s", lastException.get());
+        validateException();
         if (!blockinQueue) {
             Preconditions.checkArgument(messagesQueue.offer(row), "Can't offer task to queue. " +
                     "This: %s", this);
@@ -111,13 +110,17 @@ public class ThreadedWorker<T> implements Consumer<T> {
         }
     }
 
+    private void validateException() {
+        Throwable exception;
+        if ((exception = lastException.get()) != null) {
+            throw new IllegalArgumentException("Got unprocessed exception in buffer: " + exception.getMessage(), exception);
+        }
+    }
+
     public void join() throws TimeoutException, InterruptedException {
         long upTime = System.currentTimeMillis() + 30_000;
         while (msgsCounter.get() > 0 || currentThread.get() != null) {
-            if (lastException.get() != null) {
-                Throwable exception = lastException.get();
-                throw new IllegalArgumentException("Got unprocessed exception in buffer: " + exception.getMessage(), exception);
-            }
+            validateException();
             Thread.sleep(1_000);
             if (upTime < System.currentTimeMillis()) {
                 throw new TimeoutException("Didn't awaited for thread completion. Msgs queue: " + msgsCounter.get());
