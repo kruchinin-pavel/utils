@@ -25,6 +25,9 @@ public interface InsecureConsumer<T> {
         return v -> {
             try {
                 consumer.accept(v);
+            } catch (InterruptedException e) {
+                logger.info("Interrupted - calling interrupt for current thread");
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 logger.error("Error in InsecureConsumer(v). v={}, msg={}. Ignoring.", v, e.getMessage(), e);
             }
