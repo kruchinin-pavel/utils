@@ -27,12 +27,23 @@ import java.util.stream.Stream;
 
 public class Json {
 
-    private static final ObjectMapper mapper = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
-    private static final ObjectMapper mapperFormatted = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+    private static ObjectMapper mapper = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
+    private static ObjectMapper mapperFormatted = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-    static {
-        config(mapper);
-        config(mapperFormatted);
+    private static ObjectMapper getMapper() {
+        if (mapper == null) {
+            mapper = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
+            config(mapper);
+        }
+        return mapper;
+    }
+
+    private static ObjectMapper getMapperFormatted() {
+        if (mapperFormatted == null) {
+            mapperFormatted = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
+            config(mapperFormatted);
+        }
+        return mapperFormatted;
     }
 
     private static void config(ObjectMapper mapper) {
@@ -71,7 +82,7 @@ public class Json {
 
     public static void writeFile(String fileName, Object value) {
         try {
-            Files.write(Paths.get(fileName), Collections.singletonList(mapperFormatted.writeValueAsString(value)), Charset.defaultCharset());
+            Files.write(Paths.get(fileName), Collections.singletonList(getMapperFormatted().writeValueAsString(value)), Charset.defaultCharset());
         } catch (Exception e) {
             throw new RuntimeException("Error writing file: [" + fileName + "]", e);
         }
@@ -79,7 +90,7 @@ public class Json {
 
     public static <T> T readObject(String string, Class<T> clazz) {
         try {
-            return mapper.readValue(new StringReader(string), clazz);
+            return getMapper().readValue(new StringReader(string), clazz);
         } catch (Exception e) {
             throw new RuntimeException("Error parsing string: [" + string + "]", e);
         }
@@ -100,7 +111,7 @@ public class Json {
 
     public static String writeObject(Object val) {
         try {
-            return mapper.writeValueAsString(val);
+            return getMapper().writeValueAsString(val);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
