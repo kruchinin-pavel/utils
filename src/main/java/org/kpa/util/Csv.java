@@ -138,9 +138,10 @@ public class Csv {
     }
 
     public static <T> Iterable<? extends T> fromCsv(String fileName, CsvPreference pref, BiFunction<Map<String, String>, FileRef, T> builder) {
+        final Iterator<Map<String, String>> csvIter = Csv.readFrom(fileName, pref);
+        if (csvIter == null) return null;
         return () -> new Iterator<T>() {
             private final AtomicLong counter = new AtomicLong(-1);
-            private final Iterator<Map<String, String>> csvIter = Csv.readFrom(fileName, pref);
 
             @Override
             public boolean hasNext() {
