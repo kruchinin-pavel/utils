@@ -5,6 +5,7 @@ import org.supercsv.io.CsvMapWriter;
 import org.supercsv.prefs.CsvPreference;
 
 import java.io.BufferedWriter;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -90,6 +91,9 @@ public class Csv {
                         if (val == null) {
                             close();
                         }
+                    } catch (EOFException e) {
+                        close();
+                        return false;
                     } catch (Exception e) {
                         throw new RuntimeException("Error in csv " +
                                 fileName + ":" + counter.get() +
@@ -118,10 +122,12 @@ public class Csv {
                             csvMapReader.close();
                         }
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
+                        // ignore as we just closing resource
                     }
                 }
             };
+        } catch (EOFException e) {
+            return null;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

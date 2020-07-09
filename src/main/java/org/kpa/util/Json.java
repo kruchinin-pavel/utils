@@ -26,31 +26,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Json {
+    private static CachedVal<ObjectMapper> mapper = new CachedVal<>(() -> config(
+            new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT)));
+    private static CachedVal<ObjectMapper> mapperFormatted = new CachedVal<>(() -> config(
+            new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)));
 
-    private static ObjectMapper mapper = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
-    private static ObjectMapper mapperFormatted = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
-
-    private static ObjectMapper getMapper() {
-        if (mapper == null) {
-            mapper = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
-            config(mapper);
-        }
-        return mapper;
-    }
-
-    private static ObjectMapper getMapperFormatted() {
-        if (mapperFormatted == null) {
-            mapperFormatted = new ObjectMapper().disable(SerializationFeature.INDENT_OUTPUT);
-            config(mapperFormatted);
-        }
-        return mapperFormatted;
-    }
-
-    private static void config(ObjectMapper mapper) {
+    private static ObjectMapper config(ObjectMapper mapper) {
         mapper.registerModule(new ParameterNamesModule())
                 .registerModule(new Jdk8Module())
                 .registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
     }
 
     public static <T> Iterable<T> readObjects(Iterable<String> lines, Class<T> clazz) {
@@ -73,7 +59,7 @@ public class Json {
 
     public static <T> T readFile(String fileName, Class<T> clazz) {
         try {
-            return mapperFormatted.readValue(
+            return mapperFormatted.get().readValue(
                     new InputStreamReader(new BOMInputStream(FileUtils.getInputStream(fileName)), Charset.defaultCharset()), clazz);
         } catch (Exception e) {
             throw new RuntimeException("Error parsing file: [" + fileName + "]", e);
@@ -82,7 +68,7 @@ public class Json {
 
     public static void writeFile(String fileName, Object value) {
         try {
-            Files.write(Paths.get(fileName), Collections.singletonList(getMapperFormatted().writeValueAsString(value)), Charset.defaultCharset());
+            Files.write(Paths.get(fileName), Collections.singletonList(mapperFormatted.get().writeValueAsString(value)), Charset.defaultCharset());
         } catch (Exception e) {
             throw new RuntimeException("Error writing file: [" + fileName + "]", e);
         }
@@ -90,7 +76,7 @@ public class Json {
 
     public static <T> T readObject(String string, Class<T> clazz) {
         try {
-            return getMapper().readValue(new StringReader(string), clazz);
+            return mapper.get().readValue(new StringReader(string), clazz);
         } catch (Exception e) {
             throw new RuntimeException("Error parsing string: [" + string + "]", e);
         }
@@ -111,7 +97,7 @@ public class Json {
 
     public static String writeObject(Object val) {
         try {
-            return getMapper().writeValueAsString(val);
+            return mapper.get().writeValueAsString(val);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -138,7 +124,7 @@ public class Json {
     private static class JsonFile<T> implements Iterable<T> {
         private final String fileName;
         private final Class<T> clazz;
-        private BiConsumer<T, FileRef> postProcess = null;
+        private BiConsumer<T, FileRef> postProcess;
         private final int startFrom;
 
         JsonFile(String fileName, Class<T> clazz, BiConsumer<T, FileRef> postProcess, int startIndex) {
