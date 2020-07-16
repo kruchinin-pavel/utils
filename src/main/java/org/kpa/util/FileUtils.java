@@ -33,7 +33,7 @@ public class FileUtils {
             InputStream is = getInputStream(path.toString());
             return new BufferedReader(new InputStreamReader(new BOMInputStream(is)));
         } catch (IOException e) {
-            throw new RuntimeException("Exception with " + path + ": " + e.getMessage(), e);
+            throw new RuntimeException("Exception with [" + path + "]: " + e.getMessage(), e);
         }
     }
 
